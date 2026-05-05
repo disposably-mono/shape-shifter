@@ -93,17 +93,20 @@ export function randomiseAllEnemies(): void {
   const colors: EnemyDef['color'][] = ['red', 'blue', 'green', 'yellow'];
 
   for (const e of Object.values(enemies)) {
+    const newShape = shapes[Math.floor(Math.random() * shapes.length)];
+    const newColor = colors[Math.floor(Math.random() * colors.length)];
+
     const newDef: EnemyDef = {
       ...e.def,
-      shape: shapes[Math.floor(Math.random() * shapes.length)],
-      color: colors[Math.floor(Math.random() * colors.length)],
+      shape: newShape,
+      color: newColor,
     };
     e.def = newDef;
 
-    // Update visuals
-    e.shapeEl.className = `eshape ${newDef.shape}`;
-    e.shapeEl.style.backgroundColor = COLOR_CSS[newDef.color] ?? '#fff';
-    e.shapeEl.style.boxShadow = `0 0 6px ${COLOR_CSS[newDef.color] ?? '#fff'}44`;
+    // Rebuild className from scratch — removes valid, offscreen carry-overs
+    e.shapeEl.className = `eshape ${newShape}`;
+    e.shapeEl.style.backgroundColor = COLOR_CSS[newColor] ?? '#fff';
+    e.shapeEl.style.boxShadow = `0 0 6px ${COLOR_CSS[newColor] ?? '#fff'}44`;
   }
 }
 

@@ -315,6 +315,61 @@ body {
   pointer-events: none;
   transition: opacity .15s;
 }
+#shift-msg.bonus {
+  color: var(--white);
+  text-shadow: 0 0 40px rgba(255,255,255,0.9);
+}
+
+/* ── BREAKING HEART ── */
+#break-heart {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 96px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 199;
+  filter: grayscale(0.2);
+}
+
+#break-heart.active {
+  animation: heartBreak 0.9s ease-out forwards;
+}
+
+@keyframes heartBreak {
+  0%   { opacity: 0.18; transform: translate(-50%, -50%) scale(1); }
+  15%  { opacity: 0.22; transform: translate(-50%, -50%) scale(1.1); }
+  30%  { opacity: 0.20; transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0;    transform: translate(-50%, -50%) scale(1.4); }
+}
+
+#break-heart .half-left,
+#break-heart .half-right {
+  display: inline-block;
+  color: var(--bubblegum-pink);
+  transition: transform 0.25s ease-out;
+}
+
+#break-heart.active .half-left  {
+  animation: breakLeft  0.9s ease-out forwards;
+}
+#break-heart.active .half-right {
+  animation: breakRight 0.9s ease-out forwards;
+}
+
+@keyframes breakLeft {
+  0%   { transform: translateX(0)    rotate(0deg);   }
+  30%  { transform: translateX(0)    rotate(0deg);   }
+  100% { transform: translateX(-18px) rotate(-18deg); opacity: 0; }
+}
+
+@keyframes breakRight {
+  0%   { transform: translateX(0)    rotate(0deg);  }
+  30%  { transform: translateX(0)    rotate(0deg);  }
+  100% { transform: translateX(18px)  rotate(18deg); opacity: 0; }
+}
+
 #shift-msg.active { animation: shiftAnim 1s ease-out forwards; }
 @keyframes shiftAnim {
   0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.3); }

@@ -32,15 +32,16 @@ styleEl.textContent = `:root { ${CSS_VARS} }`;
 document.head.appendChild(styleEl);
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
-const vpEl     = document.getElementById('vp')!;
-const worldEl  = document.getElementById('world')!;
-const playerEl = document.getElementById('player')!;
-const pbody    = document.getElementById('p-body')!;
-const pRings   = document.getElementById('p-rings') as unknown as SVGElement;
-const projEl   = document.getElementById('projection')!;
-const projBody = document.getElementById('proj-body')!;
-const trailSvg = document.getElementById('trail-svg') as unknown as SVGElement;
-const shiftMsg = document.getElementById('shift-msg')!;
+const vpEl      = document.getElementById('vp')!;
+const worldEl   = document.getElementById('world')!;
+const playerEl  = document.getElementById('player')!;
+const pbody     = document.getElementById('p-body')!;
+const pRings    = document.getElementById('p-rings') as unknown as SVGElement;
+const projEl    = document.getElementById('projection')!;
+const projBody  = document.getElementById('proj-body')!;
+const trailSvg  = document.getElementById('trail-svg') as unknown as SVGElement;
+const shiftMsg  = document.getElementById('shift-msg')!;
+const breakHeart = document.getElementById('break-heart')!;
 
 // ─── Module init ──────────────────────────────────────────────────────────────
 initGrid(vpEl, worldEl);
@@ -129,15 +130,14 @@ initInput({
       reposition(ns.px, ns.py);
 
       if (exact) {
+        // Bonus SHIFT — no life lost, no screen shake, white notification
         const newPlayer = executeBonusShift(ns.px, ns.py);
         store.update(() => ({ combo: 0, player: newPlayer }));
         sfxShift();
-        vpEl.classList.add('shake');
-        setTimeout(() => vpEl.classList.remove('shake'), 350);
-        shiftMsg.classList.remove('active');
+        shiftMsg.classList.remove('active', 'bonus');
         void shiftMsg.offsetWidth;
-        shiftMsg.classList.add('active');
-        setTimeout(() => shiftMsg.classList.remove('active'), 1000);
+        shiftMsg.classList.add('active', 'bonus');
+        setTimeout(() => shiftMsg.classList.remove('active', 'bonus'), 1000);
         renderPlayer(store.get().player);
         randomiseAllEnemies();
         refreshAllValid(ns.activeRule, store.get().player);
@@ -176,6 +176,13 @@ initInput({
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function triggerBreakHeart(): void {
+  breakHeart.classList.remove('active');
+  void breakHeart.offsetWidth;
+  breakHeart.classList.add('active');
+  setTimeout(() => breakHeart.classList.remove('active'), 900);
+}
+
 function reposition(px: number, py: number): void {
   const cx = vpEl.clientWidth  / 2 - 68 / 2;
   const cy = vpEl.clientHeight / 2 - 68 / 2;
@@ -206,7 +213,7 @@ function doComboReset(): void {
   updateHUD(store.get());
 }
 
-// ─── SHIFT ────────────────────────────────────────────────────────────────────
+// ─── SHIFT (life lost) ────────────────────────────────────────────────────────
 function doShift(): void {
   const s = store.get();
   if (!s.gameActive) return;
@@ -218,10 +225,11 @@ function doShift(): void {
   sfxShift();
   vpEl.classList.add('shake');
   setTimeout(() => vpEl.classList.remove('shake'), 350);
-  shiftMsg.classList.remove('active');
+  shiftMsg.classList.remove('active', 'bonus');
   void shiftMsg.offsetWidth;
   shiftMsg.classList.add('active');
   setTimeout(() => shiftMsg.classList.remove('active'), 1000);
+  triggerBreakHeart();
 
   const ns = store.get();
   renderPlayer(ns.player);
