@@ -1,13 +1,89 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>shape-shifter</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shape Shifter</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+
+  <!-- HUD TOP -->
+  <div id="ht">
+    <div class="hc">
+      <span class="hl">Score</span>
+      <span class="hv" id="sc">0</span>
+    </div>
+    <div class="hc" id="rule-c">
+      <span class="hl">Active Rule</span>
+      <div id="rule-t">Eliminate same SHAPE or COLOR</div>
+    </div>
+    <div class="hc">
+      <span class="hl">Combo</span>
+      <span class="hv" id="combo-v">×0</span>
+      <div id="cbar-bg"><div id="cbar" style="width:0%"></div></div>
+    </div>
+    <div class="hc">
+      <span class="hl">Lives</span>
+      <div id="lives"><span class="heart">❤</span><span id="lives-num">3</span></div>
+    </div>
+  </div>
+
+  <!-- VIEWPORT -->
+  <div id="vp">
+    <svg id="trail-svg"></svg>
+    <div id="world">
+      <div id="projection" style="display:none">
+        <div id="proj-body"></div>
+      </div>
+    </div>
+    <div id="player">
+      <svg id="p-rings" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="28" cy="28" r="26" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <circle cx="28" cy="28" r="20" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+      </svg>
+      <div id="p-body"></div>
+    </div>
+  </div>
+
+  <!-- FLOATING INPUT PANEL — outside #vp so it's always visible -->
+  <div id="hb">
+    <span class="it">Input</span>
+    <div id="ks">
+      <div class="ks" id="k0"></div>
+      <div class="ks" id="k1"></div>
+      <div class="ks" id="k2"></div>
+      <div class="ks" id="k3"></div>
+    </div>
+    <div class="vs"></div>
+    <button id="eb" onclick="confirmInput()">ENTER</button>
+    <button id="cb" onclick="clearInput()">CLR</button>
+    <span id="wave-badge">WAVE 1</span>
+  </div>
+
+  <!-- SHIFT message -->
+  <div id="shift-msg">SHIFT</div>
+
+  <!-- OVERLAYS -->
+  <div class="ov" id="start-ov">
+    <h1>SHAPE SHIFTER</h1>
+    <p>Enemies march toward you every second.<br>Jump to matching ones before they reach you.<br>Build the combo. Don't let them through.</p>
+    <p style="margin-top:4px;font-size:9px;opacity:.3;">WASD / ARROWS · ENTER to jump · ESC to clear</p>
+    <button class="obtn" onclick="startGame()">BEGIN</button>
+  </div>
+  <div class="ov" id="win-ov" style="display:none">
+    <h1>WAVE CLEAR</h1>
+    <div class="stat" id="win-s"></div>
+    <button class="obtn" onclick="nextWave()">NEXT WAVE</button>
+  </div>
+  <div class="ov" id="lose-ov" style="display:none">
+    <h1>GAME OVER</h1>
+    <div class="stat" id="lose-s"></div>
+    <p>All lives lost.</p>
+    <button class="obtn" onclick="startGame()">RETRY</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>
