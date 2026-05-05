@@ -506,3 +506,126 @@ body {
 @media (max-width: 480px) {
   #metronome { left: 8px; }
 }
+
+#next-wave-req {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--emerald);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+/* ── Shift charge indicator ── */
+.shift-charge {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--off);
+  opacity: 0.35;
+  transition: color .2s, opacity .2s;
+  cursor: default;
+}
+.shift-charge.ready {
+  color: var(--emerald);
+  opacity: 1;
+  text-shadow: 0 0 8px var(--emerald);
+}
+
+/* ── FLOATING NEXT WAVE PANEL ── */
+/* Paste this block into src/style.css */
+
+#next-wave-panel {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 18px;
+  background: rgba(5, 37, 53, 0.88);
+  border: 1px solid var(--hud-border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  z-index: 30;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+#next-wave-panel .it {
+  font-size: 8px;
+  letter-spacing: 2px;
+  opacity: .4;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  color: var(--off);
+}
+
+#next-wave-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--emerald);
+  opacity: .7;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+#next-wave-bar-bg {
+  width: 80px;
+  height: 3px;
+  background: var(--hud-border);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#next-wave-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--emerald);
+  border-radius: 2px;
+  transition: width .3s ease;
+  box-shadow: 0 0 5px var(--emerald);
+}
+
+#next-wave-req {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--off);
+  white-space: nowrap;
+}
+
+/* ── SHIFT CHARGE BADGE ── */
+
+.shift-charge {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--off);
+  opacity: 0.3;
+  transition: color .2s, opacity .2s, text-shadow .2s;
+}
+
+.shift-charge.ready {
+  color: var(--emerald);
+  opacity: 1;
+  text-shadow: 0 0 8px rgba(6, 214, 160, 0.5);
+}
+
+/* ── WIN SCREEN SECONDARY BUTTON ── */
+
+.obtn-secondary {
+  background: transparent;
+  color: var(--off);
+  border: 1px solid var(--hud-border);
+  box-shadow: none;
+}
+
+.obtn-secondary:hover {
+  background: rgba(255,255,255,.05);
+  color: var(--white);
+  border-color: var(--off);
+  box-shadow: none;
+  transform: scale(1.03);
+}

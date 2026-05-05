@@ -1,28 +1,65 @@
+// src/ui/hud.ts
 import type { GameState } from '../types/index';
 
-let scEl:    HTMLElement;
-let comboEl: HTMLElement;
-let cbarEl:  HTMLElement;
-let ruleEl:  HTMLElement;
-let livesEl: HTMLElement;
-let waveBadgeEl: HTMLElement;
+let scEl:           HTMLElement;
+let comboEl:        HTMLElement;
+let cbarEl:         HTMLElement;
+let ruleEl:         HTMLElement;
+let livesEl:        HTMLElement;
+let waveBadgeEl:    HTMLElement;
+let nextWaveLabelEl: HTMLElement;
+let nextWaveBarEl:  HTMLElement;
+let nextWaveReqEl:  HTMLElement;
+let shiftChargeEl:  HTMLElement;
 
 export function initHUD(): void {
-  scEl        = document.getElementById('sc')!;
-  comboEl     = document.getElementById('combo-v')!;
-  cbarEl      = document.getElementById('cbar')!;
-  ruleEl      = document.getElementById('rule-t')!;
-  livesEl     = document.getElementById('lives-num')!;
-  waveBadgeEl = document.getElementById('wave-badge')!;
+  scEl             = document.getElementById('sc')!;
+  comboEl          = document.getElementById('combo-v')!;
+  cbarEl           = document.getElementById('cbar')!;
+  ruleEl           = document.getElementById('rule-t')!;
+  livesEl          = document.getElementById('lives-num')!;
+  waveBadgeEl      = document.getElementById('wave-badge')!;
+  nextWaveLabelEl  = document.getElementById('next-wave-label')!;
+  nextWaveBarEl    = document.getElementById('next-wave-bar')!;
+  nextWaveReqEl    = document.getElementById('next-wave-req')!;
+  shiftChargeEl    = document.getElementById('shift-charge')!;
 }
 
-export function updateHUD(state: GameState): void {
+export function updateHUD(state: GameState, shiftCharges?: number, shiftProgress?: number): void {
   scEl.textContent        = state.score.toLocaleString();
   comboEl.textContent     = '×' + state.combo;
   livesEl.textContent     = String(state.lives);
   waveBadgeEl.textContent = 'WAVE ' + state.wave;
   ruleEl.innerHTML        = state.activeRule.label;
-  cbarEl.style.width      = Math.min(100, (state.combo / state.waveTrigger.threshold) * 100) + '%';
+
+  // Combo bar — progress toward wave trigger (if combo-based)
+  cbarEl.style.width = state.waveTrigger.type === 'combo'
+    ? Math.min(100, (state.combo / state.waveTrigger.threshold) * 100) + '%'
+    : '0%';
+
+  // ── Next wave floating panel ──
+  const t = state.waveTrigger;
+  if (nextWaveLabelEl && nextWaveBarEl && nextWaveReqEl) {
+    if (t.type === 'score') {
+      const pct = Math.min(100, (state.score / t.threshold) * 100);
+      nextWaveLabelEl.textContent = 'SCORE';
+      nextWaveBarEl.style.width   = pct + '%';
+      nextWaveReqEl.textContent   = `${state.score.toLocaleString()} / ${t.threshold.toLocaleString()}`;
+    } else {
+      const pct = Math.min(100, (state.combo / t.threshold) * 100);
+      nextWaveLabelEl.textContent = 'COMBO';
+      nextWaveBarEl.style.width   = pct + '%';
+      nextWaveReqEl.textContent   = `×${state.combo} / ×${t.threshold}`;
+    }
+  }
+
+  // ── Shift charge badge ──
+  if (shiftChargeEl && shiftCharges !== undefined && shiftProgress !== undefined) {
+    // Format: [Q] SHIFT ×N  (progress toward next charge shown as sub-text via title)
+    const progressStr = shiftProgress > 0 ? ` (${shiftProgress}/5)` : '';
+    shiftChargeEl.textContent = `[Q] SHIFT ×${shiftCharges}${progressStr}`;
+    shiftChargeEl.classList.toggle('ready', shiftCharges > 0);
+  }
 }
 
 export function flashCombo(): void {

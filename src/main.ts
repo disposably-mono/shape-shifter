@@ -1,3 +1,4 @@
+// src/main.ts
 import './style.css';
 import { CSS_VARS } from './config/colors';
 import { getDifficulty } from './config/difficulty';
@@ -14,7 +15,7 @@ import { initInput, setInputActive, confirm as confirmInput, clear as clearInput
 import { initProjection, updateProjection, drawTrail } from './engine/projection';
 import { displaceNearby, executeShift, executeBonusShift } from './engine/combat';
 import { isExactMatch } from './config/rules';
-import { calcScore } from './engine/scoring';
+import { calcScore, calcPerfectShiftScore } from './engine/scoring';
 import { initHUD, updateHUD, flashCombo, showComboReset } from './ui/hud';
 import { showOverlay, hideAllOverlays } from './ui/overlays';
 import { initMetronome, tickMetronome, showMetronome, hideMetronome } from './ui/metronome';
@@ -32,15 +33,15 @@ styleEl.textContent = `:root { ${CSS_VARS} }`;
 document.head.appendChild(styleEl);
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
-const vpEl      = document.getElementById('vp')!;
-const worldEl   = document.getElementById('world')!;
-const playerEl  = document.getElementById('player')!;
-const pbody     = document.getElementById('p-body')!;
-const pRings    = document.getElementById('p-rings') as unknown as SVGElement;
-const projEl    = document.getElementById('projection')!;
-const projBody  = document.getElementById('proj-body')!;
-const trailSvg  = document.getElementById('trail-svg') as unknown as SVGElement;
-const shiftMsg  = document.getElementById('shift-msg')!;
+const vpEl       = document.getElementById('vp')!;
+const worldEl    = document.getElementById('world')!;
+const playerEl   = document.getElementById('player')!;
+const pbody      = document.getElementById('p-body')!;
+const pRings     = document.getElementById('p-rings') as unknown as SVGElement;
+const projEl     = document.getElementById('projection')!;
+const projBody   = document.getElementById('proj-body')!;
+const trailSvg   = document.getElementById('trail-svg') as unknown as SVGElement;
+const shiftMsg   = document.getElementById('shift-msg')!;
 const breakHeart = document.getElementById('break-heart')!;
 
 // ─── Module init ──────────────────────────────────────────────────────────────
@@ -53,6 +54,28 @@ initMetronome();
 
 // ─── Metro beat tracker ───────────────────────────────────────────────────────
 let metroBeat = 0;
+
+// ─── Perfect shift charge tracker ────────────────────────────────────────────
+// Every 5 exact-match kills earns 1 free Q-shift charge (cap 3).
+const PERFECT_KILLS_PER_CHARGE = 5;
+const MAX_SHIFT_CHARGES = 3;
+
+let perfectShiftCharges = 1;   // start with 1 free charge
+let perfectKillCounter  = 0;   // kills toward next charge (resets at 5)
+
+function onPerfectKill(): void {
+  perfectKillCounter++;
+  if (perfectKillCounter >= PERFECT_KILLS_PER_CHARGE) {
+    perfectKillCounter = 0;
+    perfectShiftCharges = Math.min(perfectShiftCharges + 1, MAX_SHIFT_CHARGES);
+  }
+  hudUpdate();
+}
+
+// ─── HUD helper (always passes charges + progress) ───────────────────────────
+function hudUpdate(): void {
+  updateHUD(store.get(), perfectShiftCharges, perfectKillCounter);
+}
 
 // ─── March timer ──────────────────────────────────────────────────────────────
 let marchTimer: ReturnType<typeof setInterval> | null = null;
@@ -86,7 +109,7 @@ function marchTick(): void {
   const hit = marchAll(s.px, s.py, diff.spawnCount, s.activeRule, s.player);
   if (hit) { doShift(); return; }
   refreshAllValid(s.activeRule, s.player);
-  updateHUD(store.get());
+  hudUpdate();
 }
 
 // ─── Input callbacks ──────────────────────────────────────────────────────────
@@ -130,9 +153,16 @@ initInput({
       reposition(ns.px, ns.py);
 
       if (exact) {
-        // Bonus SHIFT — no life lost, no screen shake, white notification
+        // Perfect SHIFT — no life lost, +2 combo, 2.5× score, earns progress toward charge
+        const gain = calcPerfectShiftScore(ns.combo, ns.config.difficulty);
         const newPlayer = executeBonusShift(ns.px, ns.py);
-        store.update(() => ({ combo: 0, player: newPlayer }));
+        store.update(st => ({
+          combo:    st.combo + 2,
+          maxCombo: Math.max(st.maxCombo, st.combo + 2),
+          score:    st.score + gain,
+          player:   newPlayer,
+        }));
+        onPerfectKill();
         sfxShift();
         shiftMsg.classList.remove('active', 'bonus');
         void shiftMsg.offsetWidth;
@@ -141,6 +171,8 @@ initInput({
         renderPlayer(store.get().player);
         randomiseAllEnemies();
         refreshAllValid(ns.activeRule, store.get().player);
+        flashCombo();
+        sfxComboMilestone(store.get().combo);
       } else {
         const gain = calcScore(ns.combo, ns.config.difficulty);
         store.update(st => ({
@@ -156,7 +188,7 @@ initInput({
       refreshMarchTimer();
       ensureValidTarget(ns.px, ns.py, ns.activeRule, store.get().player);
       refreshAllValid(ns.activeRule, store.get().player);
-      updateHUD(store.get());
+      hudUpdate();
       checkWaveTrigger();
     } else {
       doShift();
@@ -173,6 +205,14 @@ initInput({
     updateProjection([], s.px, s.py, s.player, s.gameActive);
     renderSlots([]);
   },
+});
+
+// ─── Hotkey: Q = manual perfect shift ────────────────────────────────────────
+document.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (e.key === 'q' || e.key === 'Q') {
+    e.preventDefault();
+    doPerfectShift();
+  }
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -210,7 +250,7 @@ function doComboReset(): void {
   showComboReset();
   sfxComboReset();
   refreshMarchTimer();
-  updateHUD(store.get());
+  hudUpdate();
 }
 
 // ─── SHIFT (life lost) ────────────────────────────────────────────────────────
@@ -236,7 +276,7 @@ function doShift(): void {
   randomiseAllEnemies();
   refreshAllValid(ns.activeRule, ns.player);
   reposition(ns.px, ns.py);
-  updateHUD(ns);
+  hudUpdate();
 
   if (ns.lives <= 0) {
     store.set({ gameActive: false });
@@ -252,10 +292,63 @@ function doShift(): void {
   startMarchTimer();
 }
 
+// ─── Perfect SHIFT (Q hotkey) ────────────────────────────────────────────────
+function doPerfectShift(): void {
+  const s = store.get();
+  if (!s.gameActive || perfectShiftCharges <= 0) return;
+
+  perfectShiftCharges--;
+
+  const gain = calcPerfectShiftScore(s.combo, s.config.difficulty);
+  const newPlayer = executeBonusShift(s.px, s.py);
+  store.update(st => ({
+    combo:    st.combo + 2,
+    maxCombo: Math.max(st.maxCombo, st.combo + 2),
+    score:    st.score + gain,
+    player:   newPlayer,
+  }));
+
+  sfxShift();
+  shiftMsg.classList.remove('active', 'bonus');
+  void shiftMsg.offsetWidth;
+  shiftMsg.classList.add('active', 'bonus');
+  setTimeout(() => shiftMsg.classList.remove('active', 'bonus'), 1000);
+
+  const ns = store.get();
+  renderPlayer(ns.player);
+  randomiseAllEnemies();
+  refreshAllValid(ns.activeRule, ns.player);
+  reposition(ns.px, ns.py);
+  flashCombo();
+  sfxComboMilestone(ns.combo);
+  refreshMarchTimer();
+  ensureValidTarget(ns.px, ns.py, ns.activeRule, ns.player);
+  hudUpdate();
+  checkWaveTrigger();
+}
+
 // ─── Wave logic ───────────────────────────────────────────────────────────────
 function checkWaveTrigger(): void {
   const s = store.get();
-  if (isWaveTriggerMet(s.waveTrigger, s.score, s.combo)) advanceWave();
+  if (!isWaveTriggerMet(s.waveTrigger, s.score, s.combo)) return;
+
+  // Wave 5 complete → win screen (unless already in endless)
+  if (s.wave === 5 && !s.config.rulePool.includes('__endless__')) {
+    doWin();
+  } else {
+    advanceWave();
+  }
+}
+
+function doWin(): void {
+  stopMarchTimer();
+  const s = store.get();
+  store.set({ gameActive: false });
+  setInputActive(false);
+  hideMetronome();
+  (document.getElementById('win-s') as HTMLElement).textContent =
+    `SCORE: ${s.score.toLocaleString()}  |  COMBO: ×${s.maxCombo}  |  LIVES: ${s.lives}`;
+  showOverlay('win-ov');
 }
 
 function advanceWave(): void {
@@ -266,14 +359,15 @@ function advanceWave(): void {
   const newTrigger  = generateWaveTrigger(nextWaveNum - 1, s.config.waveTrigger);
   const mutation    = isMutationWave(nextWaveNum);
 
-  store.update(() => ({ wave: nextWaveNum, activeRule: newRule, waveTrigger: newTrigger, combo: 0 }));
+  // Combo retained across wave transitions intentionally
+  store.update(() => ({ wave: nextWaveNum, activeRule: newRule, waveTrigger: newTrigger }));
   clearAllEnemies();
   showWaveBanner(nextWaveNum, newRule.label, mutation);
 
   setTimeout(() => {
     spawnInitialEnemies();
     startMarchTimer();
-    updateHUD(store.get());
+    hudUpdate();
     sfxWaveUp();
   }, 1800);
 }
@@ -326,13 +420,16 @@ export function startGame(): void {
 
   resetStore(config, rule, trigger);
 
+  perfectShiftCharges = 1;
+  perfectKillCounter  = 0;
+
   const s = store.get();
   renderPlayer(s.player);
   updateComboRings(0);
   hideAllOverlays();
   renderSlots([]);
   reposition(s.px, s.py);
-  updateHUD(s);
+  hudUpdate();
   spawnInitialEnemies();
   store.set({ gameActive: true });
   setInputActive(true);
@@ -341,16 +438,32 @@ export function startGame(): void {
   startMarchTimer();
 }
 
+// ─── Continue to endless (post wave-5 win) ───────────────────────────────────
+export function continueEndless(): void {
+  hideAllOverlays();
+
+  // Mark config so checkWaveTrigger never fires doWin again
+  store.update(st => ({
+    config: { ...st.config, rulePool: [...st.config.rulePool, '__endless__'] },
+    gameActive: true,
+  }));
+
+  setInputActive(true);
+  showMetronome();
+  advanceWave();
+}
+
 export function nextWave(): void {
   hideAllOverlays();
   advanceWave();
 }
 
 // ─── Expose to HTML onclick attrs ────────────────────────────────────────────
-(window as any).startGame    = startGame;
-(window as any).nextWave     = nextWave;
-(window as any).confirmInput = confirmInput;
-(window as any).clearInput   = clearInput;
+(window as any).startGame       = startGame;
+(window as any).nextWave        = nextWave;
+(window as any).continueEndless = continueEndless;
+(window as any).confirmInput    = confirmInput;
+(window as any).clearInput      = clearInput;
 
 // ─── Initial layout + resize ──────────────────────────────────────────────────
 window.addEventListener('resize', () => reposition(store.get().px, store.get().py));

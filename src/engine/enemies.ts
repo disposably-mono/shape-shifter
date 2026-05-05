@@ -1,7 +1,8 @@
+// src/engine/enemies.ts
 import type { Enemy, EnemyDef, PlayerState, Rule } from '../types/index';
 import { ENEMY_POOL } from '../config/enemies';
 import { COLOR_CSS } from '../config/colors';
-import { C, VIS_R, SPAWN_R } from './constants';
+import { C, VIS_R, SPAWN_R, MAX_INPUT } from './constants';
 import { worldX, worldY, gk } from './grid';
 
 let worldEl: HTMLElement;
@@ -24,7 +25,13 @@ function makeEnemyEl(def: EnemyDef): { wrap: HTMLElement; shapeEl: HTMLElement }
   sh.style.backgroundColor = COLOR_CSS[def.color] ?? '#fff';
   sh.style.boxShadow = `0 0 6px ${COLOR_CSS[def.color] ?? '#fff'}44`;
 
+  // Valid indicator is a sibling of the shape, not a child —
+  // so it is never clipped by the triangle clip-path.
+  const indicator = document.createElement('div');
+  indicator.className = 'valid-indicator';
+
   wrap.appendChild(sh);
+  wrap.appendChild(indicator);
   return { wrap, shapeEl: sh };
 }
 
@@ -96,14 +103,9 @@ export function randomiseAllEnemies(): void {
     const newShape = shapes[Math.floor(Math.random() * shapes.length)];
     const newColor = colors[Math.floor(Math.random() * colors.length)];
 
-    const newDef: EnemyDef = {
-      ...e.def,
-      shape: newShape,
-      color: newColor,
-    };
+    const newDef: EnemyDef = { ...e.def, shape: newShape, color: newColor };
     e.def = newDef;
 
-    // Rebuild className from scratch — removes valid, offscreen carry-overs
     e.shapeEl.className = `eshape ${newShape}`;
     e.shapeEl.style.backgroundColor = COLOR_CSS[newColor] ?? '#fff';
     e.shapeEl.style.boxShadow = `0 0 6px ${COLOR_CSS[newColor] ?? '#fff'}44`;
@@ -115,6 +117,8 @@ export function randomiseAllEnemies(): void {
 export function refreshValid(en: Enemy, rule: Rule, player: PlayerState): void {
   const v = rule.check(en.def, player);
   en.shapeEl.classList.toggle('valid', v);
+  // Indicator lives on the wrapper — toggle via wrapper class so CSS can target it
+  en.el.classList.toggle('has-valid', v);
 }
 
 export function refreshAllValid(rule: Rule, player: PlayerState): void {
@@ -139,6 +143,9 @@ export function repositionEnemies(px: number, py: number): void {
 }
 
 // ─── Ensure valid target visible ─────────────────────────────────────────────
+// Priority 1: within jump range (Manhattan ≤ MAX_INPUT)
+// Priority 2: within visible radius
+// Fallback: anywhere in vis range
 
 export function ensureValidTarget(
   px: number,
@@ -146,10 +153,26 @@ export function ensureValidTarget(
   rule: Rule,
   player: PlayerState
 ): void {
+  // Already have a reachable valid target?
   for (const e of Object.values(enemies)) {
-    const dx = Math.abs(e.gx - px), dy = Math.abs(e.gy - py);
-    if (dx <= VIS_R && dy <= VIS_R && rule.check(e.def, player)) return;
+    const md = Math.abs(e.gx - px) + Math.abs(e.gy - py);
+    if (md <= MAX_INPUT && md > 0 && rule.check(e.def, player)) return;
   }
+
+  // Try to spawn one within jump range first (guarantees a chain is always possible)
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const dist = 1 + Math.floor(Math.random() * MAX_INPUT);
+    const angle = Math.random() * Math.PI * 2;
+    const gx = px + Math.round(Math.cos(angle) * dist);
+    const gy = py + Math.round(Math.sin(angle) * dist);
+    if (gx === px && gy === py) continue;
+    if (Math.abs(gx - px) + Math.abs(gy - py) > MAX_INPUT) continue;
+    if (occupiedAt(gx, gy)) continue;
+    spawnEnemy(gx, gy, px, py, pickValidDef(rule, player));
+    return;
+  }
+
+  // Fallback: anywhere in visible radius
   for (let attempt = 0; attempt < 20; attempt++) {
     const gx = px + Math.floor(Math.random() * (VIS_R * 2 + 1)) - VIS_R;
     const gy = py + Math.floor(Math.random() * (VIS_R * 2 + 1)) - VIS_R;
@@ -187,6 +210,11 @@ function marchOneStep(
 /**
  * Advances all enemies one march tick.
  * Returns true if an enemy reached the player (triggers SHIFT).
+ *
+ * Spawn distribution per tick:
+ *   ~50% at SPAWN_R (far ring, classic pressure)
+ *   ~30% at mid range (VIS_R - 1 .. VIS_R + 1) to replenish visible pool
+ *   ~20% guaranteed valid within jump range if valid count is low
  */
 export function marchAll(
   px: number,
@@ -195,11 +223,37 @@ export function marchAll(
   rule: Rule,
   player: PlayerState
 ): boolean {
-  // Spawn new enemies this tick
+  // Count reachable valid targets before spawning
+  const reachableValid = Object.values(enemies).filter(e => {
+    const md = Math.abs(e.gx - px) + Math.abs(e.gy - py);
+    return md <= MAX_INPUT && md > 0 && rule.check(e.def, player);
+  }).length;
+
   for (let i = 0; i < spawnCount; i++) {
+    const roll = Math.random();
+    let radius: number;
+
+    if (reachableValid === 0 && i === 0) {
+      // Guarantee a close valid spawn when the player has nothing to chain
+      radius = 1 + Math.floor(Math.random() * MAX_INPUT);
+      const angle = Math.random() * Math.PI * 2;
+      const gx = px + Math.round(Math.cos(angle) * radius);
+      const gy = py + Math.round(Math.sin(angle) * radius);
+      spawnEnemy(gx, gy, px, py, pickValidDef(rule, player));
+      continue;
+    }
+
+    if (roll < 0.5) {
+      radius = SPAWN_R; // far ring
+    } else if (roll < 0.8) {
+      radius = VIS_R - 1 + Math.floor(Math.random() * 3); // mid range
+    } else {
+      radius = 2 + Math.floor(Math.random() * (MAX_INPUT - 1)); // close ring
+    }
+
     const angle = Math.random() * Math.PI * 2;
-    const gx = px + Math.round(Math.cos(angle) * SPAWN_R);
-    const gy = py + Math.round(Math.sin(angle) * SPAWN_R);
+    const gx = px + Math.round(Math.cos(angle) * radius);
+    const gy = py + Math.round(Math.sin(angle) * radius);
     spawnEnemy(gx, gy, px, py);
   }
 
@@ -224,7 +278,7 @@ export function marchAll(
     const steps = dist > VIS_R ? 2 : 1;
     for (let s = 0; s < steps; s++) {
       if (!marchOneStep(e, px, py, moved)) break;
-      if (e.gx === px && e.gy === py) return true; // player hit mid-step
+      if (e.gx === px && e.gy === py) return true;
     }
   }
 

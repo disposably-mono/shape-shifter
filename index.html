@@ -29,6 +29,15 @@
     </div>
   </div>
 
+  <!-- FLOATING NEXT WAVE PANEL — top center -->
+  <div id="next-wave-panel">
+    <span class="it" id="next-wave-label">SCORE</span>
+    <div id="next-wave-bar-bg">
+      <div id="next-wave-bar"></div>
+    </div>
+    <span id="next-wave-req">— / —</span>
+  </div>
+
   <!-- VIEWPORT -->
   <div id="vp">
     <svg id="trail-svg"></svg>
@@ -47,7 +56,7 @@
     </div>
   </div>
 
-  <!-- FLOATING INPUT PANEL — outside #vp so it's always visible -->
+  <!-- FLOATING INPUT PANEL -->
   <div id="hb">
     <span class="it">Input</span>
     <div id="ks">
@@ -60,6 +69,8 @@
     <button id="eb" onclick="confirmInput()">ENTER</button>
     <button id="cb" onclick="clearInput()">CLR</button>
     <span id="wave-badge">WAVE 1</span>
+    <div class="vs"></div>
+    <span id="shift-charge" class="shift-charge">[Q] SHIFT ×1</span>
   </div>
 
   <!-- SHIFT message -->
@@ -73,14 +84,23 @@
   <div class="ov" id="start-ov">
     <h1>SHAPE SHIFTER</h1>
     <p>Enemies march toward you every second.<br>Jump to matching ones before they reach you.<br>Build the combo. Don't let them through.</p>
-    <p style="margin-top:4px;font-size:9px;opacity:.3;">WASD / ARROWS · ENTER to jump · ESC to clear</p>
+    <p style="margin-top:4px;font-size:9px;opacity:.3;">WASD / ARROWS · ENTER to jump · ESC to clear · Q to SHIFT</p>
     <button class="obtn" onclick="startGame()">BEGIN</button>
   </div>
+
   <div class="ov" id="win-ov" style="display:none">
-    <h1>WAVE CLEAR</h1>
+    <h1>YOU SURVIVED</h1>
+    <p style="opacity:.5;font-size:10px;letter-spacing:2px;margin-bottom:4px;">WAVES 1 — 5 COMPLETE</p>
     <div class="stat" id="win-s"></div>
-    <button class="obtn" onclick="nextWave()">NEXT WAVE</button>
+    <p style="max-width:320px;text-align:center;opacity:.45;margin-top:8px;line-height:1.8;">
+      The grid goes dark beyond wave 5.<br>No more rules. No more mercy.
+    </p>
+    <div style="display:flex;gap:12px;margin-top:16px;">
+      <button class="obtn obtn-secondary" onclick="startGame()">PLAY AGAIN</button>
+      <button class="obtn" onclick="continueEndless()">CONTINUE TO ENDLESS →</button>
+    </div>
   </div>
+
   <div class="ov" id="lose-ov" style="display:none">
     <h1>GAME OVER</h1>
     <div class="stat" id="lose-s"></div>
