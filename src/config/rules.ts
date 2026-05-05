@@ -22,40 +22,52 @@ export const RULES: Record<string, Rule> = {
     difficulty: 2,
     check: (e, p) => e.color === p.color,
   },
-  SHAPE_AND_COLOR: {
-    id: 'SHAPE_AND_COLOR',
-    label: 'Same <b>SHAPE</b> and <b>COLOR</b>',
-    description: 'Only enemies that match both your shape and colour can be eliminated.',
-    difficulty: 3,
-    check: (e, p) => e.shape === p.shape && e.color === p.color,
-  },
+  // SHAPE_AND_COLOR removed from playable pool.
+  // It is only used internally to detect bonus SHIFT kills.
 };
 
 export const RULE_POOL = Object.values(RULES);
 
-/**
- * Endless mode mutation escalation path.
- * Every 5 waves past wave 10, escalate the rule difficulty.
- */
+/** Weighted rule selection — SHAPE_OR_COLOR is 3× more likely than the others */
+export const RULE_WEIGHTS: Record<string, number> = {
+  SHAPE_OR_COLOR: 3,
+  SHAPE_ONLY:     1,
+  COLOR_ONLY:     1,
+};
+
+/** Pick a rule from a given ID pool using weights */
+export function pickRule(ruleIds: string[]): Rule {
+  const valid = ruleIds.filter(id => RULES[id]);
+  if (!valid.length) return RULES['SHAPE_OR_COLOR'];
+
+  const totalWeight = valid.reduce((s, id) => s + (RULE_WEIGHTS[id] ?? 1), 0);
+  let r = Math.random() * totalWeight;
+  for (const id of valid) {
+    r -= RULE_WEIGHTS[id] ?? 1;
+    if (r <= 0) return RULES[id];
+  }
+  return RULES[valid[0]];
+}
+
+/** Endless mode mutation path — never reaches SHAPE_AND_COLOR */
 export const MUTATION_PATH: string[] = [
   'SHAPE_OR_COLOR',
   'SHAPE_ONLY',
   'COLOR_ONLY',
-  'SHAPE_AND_COLOR',
 ];
 
-/** Pick a random rule from a given ID pool */
-export function pickRule(ruleIds: string[]): Rule {
-  const valid = ruleIds.filter(id => RULES[id]);
-  if (!valid.length) return RULES['SHAPE_OR_COLOR'];
-  return RULES[valid[Math.floor(Math.random() * valid.length)]];
-}
-
-/** Get the next mutation rule given the current one */
 export function getMutatedRule(currentRuleId: string): Rule {
   const idx = MUTATION_PATH.indexOf(currentRuleId);
   if (idx === -1 || idx >= MUTATION_PATH.length - 1) {
-    return RULES['SHAPE_AND_COLOR'];
+    return RULES['COLOR_ONLY'];
   }
   return RULES[MUTATION_PATH[idx + 1]];
+}
+
+/** True if the enemy is an exact match (bonus SHIFT condition) */
+export function isExactMatch(
+  enemy: { shape: string; color: string },
+  player: { shape: string; color: string }
+): boolean {
+  return enemy.shape === player.shape && enemy.color === player.color;
 }

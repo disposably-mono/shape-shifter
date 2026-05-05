@@ -8,16 +8,20 @@ import { initPlayer, renderPlayer, updateComboRings, animateJump } from './engin
 import {
   initEnemies, enemies, spawnEnemy, removeEnemy, clearAllEnemies,
   marchAll, refreshAllValid, repositionEnemies, ensureValidTarget,
+  randomiseAllEnemies,
 } from './engine/enemies';
 import { initInput, setInputActive, confirm as confirmInput, clear as clearInput, resetSeq } from './engine/input';
 import { initProjection, updateProjection, drawTrail } from './engine/projection';
-import { displaceNearby, executeShift } from './engine/combat';
+import { displaceNearby, executeShift, executeBonusShift } from './engine/combat';
+import { isExactMatch } from './config/rules';
 import { calcScore } from './engine/scoring';
 import { initHUD, updateHUD, flashCombo, showComboReset } from './ui/hud';
 import { showOverlay, hideAllOverlays } from './ui/overlays';
+import { initMetronome, tickMetronome, showMetronome, hideMetronome } from './ui/metronome';
 import {
-  sfxElim, sfxComboReset, sfxShift, sfxTick,
+  sfxElim, sfxComboReset, sfxShift,
   sfxComboMilestone, sfxWaveUp,
+  sfxMetronomeDown, sfxMetronomeUp,
 } from './engine/audio';
 import { SPAWN_R, MAX_INPUT } from './engine/constants';
 import type { LobbyConfig } from './types/index';
@@ -44,6 +48,10 @@ initPlayer(pbody, pRings);
 initEnemies(worldEl);
 initProjection(projEl, projBody, trailSvg);
 initHUD();
+initMetronome();
+
+// ─── Metro beat tracker ───────────────────────────────────────────────────────
+let metroBeat = 0;
 
 // ─── March timer ──────────────────────────────────────────────────────────────
 let marchTimer: ReturnType<typeof setInterval> | null = null;
@@ -55,7 +63,8 @@ function stopMarchTimer(): void {
 function startMarchTimer(): void {
   stopMarchTimer();
   const s = store.get();
-  const diff = getDifficulty(s.config.difficulty, s.wave, s.combo);
+  const diff = getDifficulty(s.config.difficulty, s.wave, s.combo, s.activeRule.id);
+  document.documentElement.style.setProperty('--metro-duration', diff.marchTick + 'ms');
   marchTimer = setInterval(marchTick, diff.marchTick);
 }
 
@@ -67,8 +76,12 @@ function refreshMarchTimer(): void {
 function marchTick(): void {
   const s = store.get();
   if (!s.gameActive) return;
-  sfxTick();
-  const diff = getDifficulty(s.config.difficulty, s.wave, s.combo);
+
+  metroBeat = (metroBeat + 1) % 2;
+  tickMetronome();
+  metroBeat === 0 ? sfxMetronomeDown() : sfxMetronomeUp();
+
+  const diff = getDifficulty(s.config.difficulty, s.wave, s.combo, s.activeRule.id);
   const hit = marchAll(s.px, s.py, diff.spawnCount, s.activeRule, s.player);
   if (hit) { doShift(); return; }
   refreshAllValid(s.activeRule, s.player);
@@ -104,7 +117,9 @@ initInput({
 
     if (s.activeRule.check(target.def, s.player)) {
       const fromGX = s.px, fromGY = s.py;
-      displaceNearby(tx, ty, s.px, s.py, worldEl);
+      const exact = isExactMatch(target.def, s.player);
+
+      displaceNearby(tx, ty, s.px, s.py, s.activeRule, s.player, worldEl);
       removeEnemy(target.id);
       store.update(() => ({ px: tx, py: ty }));
       const ns = store.get();
@@ -113,19 +128,34 @@ initInput({
       animateJump(pbody);
       reposition(ns.px, ns.py);
 
-      const gain = calcScore(ns.combo, ns.config.difficulty);
-      store.update(st => ({
-        score:    st.score + gain,
-        combo:    st.combo + 1,
-        maxCombo: Math.max(st.maxCombo, st.combo + 1),
-      }));
+      if (exact) {
+        const newPlayer = executeBonusShift(ns.px, ns.py);
+        store.update(() => ({ combo: 0, player: newPlayer }));
+        sfxShift();
+        vpEl.classList.add('shake');
+        setTimeout(() => vpEl.classList.remove('shake'), 350);
+        shiftMsg.classList.remove('active');
+        void shiftMsg.offsetWidth;
+        shiftMsg.classList.add('active');
+        setTimeout(() => shiftMsg.classList.remove('active'), 1000);
+        renderPlayer(store.get().player);
+        randomiseAllEnemies();
+        refreshAllValid(ns.activeRule, store.get().player);
+      } else {
+        const gain = calcScore(ns.combo, ns.config.difficulty);
+        store.update(st => ({
+          score:    st.score + gain,
+          combo:    st.combo + 1,
+          maxCombo: Math.max(st.maxCombo, st.combo + 1),
+        }));
+        sfxElim();
+        sfxComboMilestone(store.get().combo);
+        flashCombo();
+      }
 
-      sfxElim();
-      sfxComboMilestone(store.get().combo);
-      flashCombo();
       refreshMarchTimer();
-      ensureValidTarget(ns.px, ns.py, ns.activeRule, ns.player);
-      refreshAllValid(ns.activeRule, ns.player);
+      ensureValidTarget(ns.px, ns.py, ns.activeRule, store.get().player);
+      refreshAllValid(ns.activeRule, store.get().player);
       updateHUD(store.get());
       checkWaveTrigger();
     } else {
@@ -182,7 +212,7 @@ function doShift(): void {
   if (!s.gameActive) return;
   stopMarchTimer();
 
-  const newPlayer = executeShift(s.px, s.py, s.activeRule);
+  const newPlayer = executeShift(s.px, s.py);
   store.update(() => ({ lives: s.lives - 1, combo: 0, player: newPlayer }));
 
   sfxShift();
@@ -195,6 +225,7 @@ function doShift(): void {
 
   const ns = store.get();
   renderPlayer(ns.player);
+  randomiseAllEnemies();
   refreshAllValid(ns.activeRule, ns.player);
   reposition(ns.px, ns.py);
   updateHUD(ns);
@@ -202,6 +233,7 @@ function doShift(): void {
   if (ns.lives <= 0) {
     store.set({ gameActive: false });
     setInputActive(false);
+    hideMetronome();
     (document.getElementById('lose-s') as HTMLElement).textContent =
       `SCORE: ${ns.score.toLocaleString()}  |  WAVE: ${ns.wave}  |  COMBO: ×${ns.maxCombo}`;
     showOverlay('lose-ov');
@@ -295,7 +327,9 @@ export function startGame(): void {
   updateHUD(s);
   spawnInitialEnemies();
   store.set({ gameActive: true });
-  setInputActive(true);    
+  setInputActive(true);
+  metroBeat = 0;
+  showMetronome();
   startMarchTimer();
 }
 

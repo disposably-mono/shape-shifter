@@ -65,3 +65,11 @@ export function sfxWaveUp():  void {
     setTimeout(() => playTone(f, 'sine', 0.12, 0.12), i * 60)
   );
 }
+
+export function sfxMetronomeDown(): void {
+  playTone(220, 'sine', 0.08, 0.22);
+}
+
+export function sfxMetronomeUp(): void {
+  playTone(330, 'sine', 0.06, 0.14);
+}

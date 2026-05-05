@@ -87,6 +87,26 @@ export function clearAllEnemies(): void {
   for (const id of Object.keys(enemies)) removeEnemy(id);
 }
 
+/** Randomise the shape and color of every live enemy — called on SHIFT */
+export function randomiseAllEnemies(): void {
+  const shapes: EnemyDef['shape'][] = ['circle', 'square', 'triangle'];
+  const colors: EnemyDef['color'][] = ['red', 'blue', 'green', 'yellow'];
+
+  for (const e of Object.values(enemies)) {
+    const newDef: EnemyDef = {
+      ...e.def,
+      shape: shapes[Math.floor(Math.random() * shapes.length)],
+      color: colors[Math.floor(Math.random() * colors.length)],
+    };
+    e.def = newDef;
+
+    // Update visuals
+    e.shapeEl.className = `eshape ${newDef.shape}`;
+    e.shapeEl.style.backgroundColor = COLOR_CSS[newDef.color] ?? '#fff';
+    e.shapeEl.style.boxShadow = `0 0 6px ${COLOR_CSS[newDef.color] ?? '#fff'}44`;
+  }
+}
+
 // ─── Valid highlighting ───────────────────────────────────────────────────────
 
 export function refreshValid(en: Enemy, rule: Rule, player: PlayerState): void {
