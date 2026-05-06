@@ -1,25 +1,33 @@
 // src/engine/waves.ts
 import type { LobbyConfig, Rule, WaveTrigger, WaveTriggerType } from '../types/index';
-import { RULES, pickRule, getMutatedRule } from '../config/rules';
+import { RULES, pickRule } from '../config/rules';
 
-// Delta thresholds — added on top of whatever score/combo the player has
-// when the wave starts, so requirements always feel meaningful.
-const WAVE_SCORE_DELTAS = [500, 1200, 2200, 3500, 5000, 7000, 9500, 12500, 16000, 20000];
-const WAVE_COMBO_DELTAS = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
+// ─── Wave trigger thresholds ─────────────────────────────────────────────────
+// Both use exponential growth from the player-chosen base values.
+// Score:  2000 * 1.45^(wave - 1)
+// Combo:  floor(20 * 1.15^(wave - 1))
+// These are DELTAS — added on top of the snapshot taken at wave start.
+
+export function getScoreDelta(wave: number): number {
+  return Math.round(2000 * Math.pow(1.45, wave - 1));
+}
+
+export function getComboDelta(wave: number): number {
+  return Math.floor(20 * Math.pow(1.15, wave - 1));
+}
 
 /**
- * Generate a wave trigger for a given wave index (0-based).
- * currentScore / currentCombo are the player's values at the moment of
- * wave transition — the threshold is set to current + delta, so the
- * requirement is always additive on top of what's already been earned.
+ * Generate a wave trigger for a given wave number (1-based).
+ * waveBaseScore / waveBaseCombo are snapshots taken at the moment the
+ * wave starts — threshold = snapshot + delta, so the player always needs
+ * to earn the full delta within the wave regardless of prior progress.
  */
 export function generateWaveTrigger(
   wave: number,
   triggerType: WaveTriggerType,
-  currentScore: number = 0,
-  currentCombo: number = 0,
+  waveBaseScore: number = 0,
+  waveBaseCombo: number = 0,
 ): WaveTrigger {
-  const idx = Math.min(wave, WAVE_SCORE_DELTAS.length - 1);
   let type: 'score' | 'combo';
 
   if (triggerType === 'random') {
@@ -28,34 +36,60 @@ export function generateWaveTrigger(
     type = triggerType;
   }
 
-  const delta = type === 'score'
-    ? WAVE_SCORE_DELTAS[idx]
-    : WAVE_COMBO_DELTAS[idx];
-
-  const base = type === 'score' ? currentScore : currentCombo;
-  const threshold = base + delta;
+  const threshold = type === 'score'
+    ? waveBaseScore + getScoreDelta(wave)
+    : waveBaseCombo + getComboDelta(wave);
 
   return { type, threshold };
 }
 
-/** Check whether the current wave trigger condition is met */
+/**
+ * Check whether the current wave trigger condition is met.
+ * score and combo here are absolute current values — the baseline is
+ * already baked into the threshold at wave generation time.
+ */
 export function isWaveTriggerMet(
   trigger: WaveTrigger,
   score: number,
-  combo: number
+  combo: number,
 ): boolean {
   if (trigger.type === 'score') return score >= trigger.threshold;
   return combo >= trigger.threshold;
 }
 
-/** Pick the active rule for a given wave from the config's rule pool */
+/**
+ * Pick the active rule for a given wave.
+ * Waves 1–2: SHAPE_OR_COLOR only (locked — learning zone).
+ * Waves 3–4: exclude SHAPE_AND_COLOR (pressure zone).
+ * Waves 5+:  full pool (endless ready).
+ */
 export function pickWaveRule(wave: number, config: LobbyConfig): Rule {
-  if (wave <= 10) {
-    return pickRule(config.rulePool);
+  if (wave <= 2) {
+    return RULES['SHAPE_OR_COLOR'];
   }
+
+  if (wave <= 4) {
+    const safePool = config.rulePool.filter(id => id !== 'SHAPE_AND_COLOR');
+    const pool = safePool.length > 0 ? safePool : config.rulePool;
+    return pickRule(pool);
+  }
+
+  // Wave 5+: full pool; endless mutations override via isMutationWave
+  if (isMutationWave(wave)) {
+    return getMutationRule(wave);
+  }
+
+  return pickRule(config.rulePool);
+}
+
+/**
+ * Endless mutation escalation path (wave 11+, every 5 waves).
+ * SHAPE_OR_COLOR → SHAPE_ONLY / COLOR_ONLY → SHAPE_AND_COLOR
+ */
+export function getMutationRule(wave: number): Rule {
   const mutationIndex = Math.floor((wave - 11) / 5);
-  const mutationPath = ['SHAPE_OR_COLOR', 'SHAPE_ONLY', 'COLOR_ONLY', 'SHAPE_AND_COLOR'];
-  const id = mutationPath[Math.min(mutationIndex, mutationPath.length - 1)];
+  const path = ['SHAPE_OR_COLOR', 'SHAPE_ONLY', 'COLOR_ONLY', 'SHAPE_AND_COLOR'];
+  const id = path[Math.min(mutationIndex, path.length - 1)];
   return RULES[id];
 }
 

@@ -27,6 +27,7 @@
       <span class="hl">Lives</span>
       <div id="lives"><span class="heart">❤</span><span id="lives-num">3</span></div>
     </div>
+    <!-- Auth chip injected here by hud.ts -->
   </div>
 
   <!-- FLOATING NEXT WAVE PANEL — top center -->
@@ -66,8 +67,8 @@
       <div class="ks" id="k3"></div>
     </div>
     <div class="vs"></div>
-    <button id="eb" onclick="confirmInput()">ENTER</button>
-    <button id="cb" onclick="clearInput()">CLR</button>
+    <button id="eb">ENTER</button>
+    <button id="cb">CLR</button>
     <span id="wave-badge">WAVE 1</span>
     <div class="vs"></div>
     <span id="shift-charge" class="shift-charge">[Q] SHIFT ×1</span>
@@ -80,19 +81,17 @@
     </div>
   </div>
 
-  <!-- OVERLAYS -->
-
   <!-- START SCREEN -->
   <div class="ov" id="start-ov">
     <h1>SHAPE SHIFTER</h1>
     <p>Enemies march toward you every second.<br>Jump to matching ones before they reach you.<br>Build the combo. Don't let them through.</p>
     <p style="margin-top:4px;font-size:9px;opacity:.3;">WASD / ARROWS · ENTER to jump · ESC to clear · Q to SHIFT</p>
-    <button class="obtn" onclick="startGame()">PLAY AS GUEST</button>
-    <div class="auth-row">
-      <button class="obtn-link" id="btn-signin" disabled>Sign In</button>
-      <span class="auth-divider">·</span>
-      <button class="obtn-link" id="btn-register" disabled>Create Account</button>
-      <span class="auth-coming">(Phase 3)</span>
+    <button class="obtn" id="start-play-btn">PLAY AS GUEST</button>
+    <div class="start-auth-row">
+      <button class="obtn-link" id="btn-signin">Sign In</button>
+      <span style="opacity:.3;font-size:10px;">·</span>
+      <button class="obtn-link" id="btn-register">Create Account</button>
+      <button class="obtn-link" id="btn-signout" style="display:none">Sign Out</button>
     </div>
   </div>
 
@@ -105,8 +104,8 @@
       The grid goes dark beyond wave 5.<br>No more rules. No more mercy.
     </p>
     <div style="display:flex;gap:12px;margin-top:16px;">
-      <button class="obtn obtn-secondary" onclick="startGame()">PLAY AGAIN</button>
-      <button class="obtn" onclick="continueEndless()">CONTINUE TO ENDLESS →</button>
+      <button class="obtn obtn-secondary" id="win-retry-btn">PLAY AGAIN</button>
+      <button class="obtn" id="win-endless-btn">CONTINUE TO ENDLESS →</button>
     </div>
   </div>
 
@@ -115,10 +114,10 @@
     <h1>GAME OVER</h1>
     <div class="stat" id="lose-s"></div>
     <p>All lives lost.</p>
-    <button class="obtn" onclick="startGame()">RETRY</button>
-    <div class="guest-cta">
+    <button class="obtn" id="lose-retry-btn">RETRY</button>
+    <div class="guest-cta" id="guest-cta">
       <p>Save your score. Unlock the lobby. Appear on the leaderboard.</p>
-      <button class="obtn-link" disabled>Create Account — Coming in Phase 3</button>
+      <button class="obtn-link" id="guest-cta-btn">Create Account</button>
     </div>
   </div>
 

@@ -36,6 +36,8 @@ export function createInitialState(
     inputSeq: [] as Direction[],
     config,
     waveTrigger,
+    waveBaseScore: 0,
+    waveBaseCombo: 0,
   };
 }
 

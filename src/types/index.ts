@@ -64,6 +64,8 @@ export interface GameState {
   inputSeq: Direction[];
   config: LobbyConfig;
   waveTrigger: WaveTrigger;
+  waveBaseScore: number;
+  waveBaseCombo: number;
 }
 
 export interface ScoreSubmission {

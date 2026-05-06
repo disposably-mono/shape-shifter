@@ -16,10 +16,15 @@ import { initProjection, updateProjection, drawTrail } from './engine/projection
 import { displaceNearby, executeShift, executeBonusShift } from './engine/combat';
 import { isExactMatch } from './config/rules';
 import { calcScore, calcPerfectShiftScore } from './engine/scoring';
-import { initHUD, updateHUD, flashCombo, showComboReset } from './ui/hud';
+import { initHUD, updateHUD, flashCombo, showComboReset, updateAuthChip } from './ui/hud';
 import { showOverlay, hideAllOverlays } from './ui/overlays';
 import { initMetronome, tickMetronome, showMetronome, hideMetronome } from './ui/metronome';
 import { initDpad } from './ui/dpad';
+import { initLobby, openLobby } from './ui/lobby';
+import { initAuthModal, openAuthModal, handleUserResolved } from './ui/auth-modal';
+import { initUsernameModal } from './ui/username-modal';
+import { getCurrentUser, onAuthStateChange, signOut } from './supabase/auth';
+import { getCachedProfile, clearProfileCache } from './supabase/profiles';
 import {
   sfxElim, sfxComboReset, sfxShift,
   sfxComboMilestone, sfxWaveUp,
@@ -58,12 +63,11 @@ initDpad();
 let metroBeat = 0;
 
 // ─── Perfect shift charge tracker ────────────────────────────────────────────
-// Every 5 exact-match kills earns 1 free Q-shift charge (cap 3).
 const PERFECT_KILLS_PER_CHARGE = 5;
 const MAX_SHIFT_CHARGES = 3;
 
-let perfectShiftCharges = 1;   // start with 1 free charge
-let perfectKillCounter  = 0;   // kills toward next charge (resets at 5)
+let perfectShiftCharges = 1;
+let perfectKillCounter  = 0;
 
 function onPerfectKill(): void {
   perfectKillCounter++;
@@ -74,7 +78,7 @@ function onPerfectKill(): void {
   hudUpdate();
 }
 
-// ─── HUD helper (always passes charges + progress) ───────────────────────────
+// ─── HUD helper ───────────────────────────────────────────────────────────────
 function hudUpdate(): void {
   updateHUD(store.get(), perfectShiftCharges, perfectKillCounter);
 }
@@ -155,7 +159,6 @@ initInput({
       reposition(ns.px, ns.py);
 
       if (exact) {
-        // Perfect SHIFT — no life lost, +2 combo, 2.5× score, earns progress toward charge
         const gain = calcPerfectShiftScore(ns.combo, ns.config.difficulty);
         const newPlayer = executeBonusShift(ns.px, ns.py);
         store.update(st => ({
@@ -208,6 +211,14 @@ initInput({
     renderSlots([]);
   },
 });
+
+// ─── Button event wiring ──────────────────────────────────────────────────────
+document.getElementById('eb')!.addEventListener('click', confirmInput);
+document.getElementById('cb')!.addEventListener('click', clearInput);
+document.getElementById('win-retry-btn')!.addEventListener('click', () => startGame());
+document.getElementById('win-endless-btn')!.addEventListener('click', continueEndless);
+document.getElementById('lose-retry-btn')!.addEventListener('click', () => startGame());
+document.getElementById('guest-cta-btn')!.addEventListener('click', () => openAuthModal('signup'));
 
 // ─── Hotkey: Q = manual perfect shift ────────────────────────────────────────
 document.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -286,6 +297,11 @@ function doShift(): void {
     hideMetronome();
     (document.getElementById('lose-s') as HTMLElement).textContent =
       `SCORE: ${ns.score.toLocaleString()}  |  WAVE: ${ns.wave}  |  COMBO: ×${ns.maxCombo}`;
+
+    // Show or hide guest CTA based on auth state
+    const guestCta = document.getElementById('guest-cta')!;
+    guestCta.style.display = getCachedProfile() ? 'none' : 'flex';
+
     showOverlay('lose-ov');
     return;
   }
@@ -294,7 +310,7 @@ function doShift(): void {
   startMarchTimer();
 }
 
-// ─── Perfect SHIFT (Q hotkey) ────────────────────────────────────────────────
+// ─── Perfect SHIFT (Q hotkey) ─────────────────────────────────────────────────
 function doPerfectShift(): void {
   const s = store.get();
   if (!s.gameActive || perfectShiftCharges <= 0) return;
@@ -332,9 +348,7 @@ function doPerfectShift(): void {
 // ─── Wave logic ───────────────────────────────────────────────────────────────
 function checkWaveTrigger(): void {
   const s = store.get();
-  if (!isWaveTriggerMet(s.waveTrigger, s.score, s.combo)) return;
-
-  // Wave 5 complete → win screen (unless already in endless)
+  if (!isWaveTriggerMet(s.waveTrigger, s.score, s.maxCombo)) return;
   if (s.wave === 5 && !s.config.rulePool.includes('__endless__')) {
     doWin();
   } else {
@@ -357,12 +371,28 @@ function advanceWave(): void {
   stopMarchTimer();
   const s = store.get();
   const nextWaveNum = s.wave + 1;
-  const newRule     = pickWaveRule(nextWaveNum, s.config);
-  const newTrigger  = generateWaveTrigger(nextWaveNum - 1, s.config.waveTrigger);
-  const mutation    = isMutationWave(nextWaveNum);
 
-  // Combo retained across wave transitions intentionally
-  store.update(() => ({ wave: nextWaveNum, activeRule: newRule, waveTrigger: newTrigger }));
+  // Snapshot current score and maxCombo as the delta baseline for the new wave
+  const waveBaseScore = s.score;
+  const waveBaseCombo = s.maxCombo;
+
+  const newRule    = pickWaveRule(nextWaveNum, s.config);
+  const newTrigger = generateWaveTrigger(
+    nextWaveNum,
+    s.config.waveTrigger,
+    waveBaseScore,
+    waveBaseCombo,
+  );
+  const mutation = isMutationWave(nextWaveNum);
+
+  store.update(() => ({
+    wave: nextWaveNum,
+    activeRule: newRule,
+    waveTrigger: newTrigger,
+    waveBaseScore,
+    waveBaseCombo,
+  }));
+
   clearAllEnemies();
   showWaveBanner(nextWaveNum, newRule.label, mutation);
 
@@ -379,7 +409,11 @@ function showWaveBanner(wave: number, ruleLabel: string, mutation: boolean): voi
   if (existing) existing.remove();
   const banner = document.createElement('div');
   banner.id = 'wave-banner';
-  banner.innerHTML = `<span>WAVE ${wave}</span><small style="display:block;font-size:9px;opacity:.6;margin-top:4px;">${mutation ? '⚡ RULE MUTATION — ' : ''}${ruleLabel}</small>`;
+  banner.innerHTML = `
+    <span>WAVE ${wave}</span>
+    <small style="display:block;font-size:9px;opacity:.6;margin-top:4px;">
+      ${mutation ? '⚡ RULE MUTATION — ' : ''}${ruleLabel}
+    </small>`;
   banner.style.cssText = [
     'position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-100%)',
     'background:var(--hud-bg);border:1px solid var(--hud-border)',
@@ -410,17 +444,22 @@ function spawnInitialEnemies(): void {
   ensureValidTarget(s.px, s.py, s.activeRule, s.player);
 }
 
-export function startGame(): void {
+function startGame(config?: LobbyConfig): void {
   stopMarchTimer();
   clearAllEnemies();
   clearCellPool();
   (trailSvg as any).innerHTML = '';
 
-  const config: LobbyConfig = { ...DEFAULT_LOBBY_CONFIG };
-  const rule    = pickWaveRule(config.startingWave, config);
-  const trigger = generateWaveTrigger(config.startingWave - 1, config.waveTrigger);
+  const activeConfig: LobbyConfig = config ?? { ...DEFAULT_LOBBY_CONFIG };
+  const rule    = pickWaveRule(activeConfig.startingWave, activeConfig);
+  const trigger = generateWaveTrigger(
+    activeConfig.startingWave,
+    activeConfig.waveTrigger,
+    0,
+    0,
+  );
 
-  resetStore(config, rule, trigger);
+  resetStore(activeConfig, rule, trigger);
 
   perfectShiftCharges = 1;
   perfectKillCounter  = 0;
@@ -440,32 +479,97 @@ export function startGame(): void {
   startMarchTimer();
 }
 
-// ─── Continue to endless (post wave-5 win) ───────────────────────────────────
-export function continueEndless(): void {
+function continueEndless(): void {
   hideAllOverlays();
-
-  // Mark config so checkWaveTrigger never fires doWin again
   store.update(st => ({
     config: { ...st.config, rulePool: [...st.config.rulePool, '__endless__'] },
     gameActive: true,
   }));
-
   setInputActive(true);
   showMetronome();
   advanceWave();
 }
 
-export function nextWave(): void {
+function nextWave(): void {
   hideAllOverlays();
   advanceWave();
 }
 
-// ─── Expose to HTML onclick attrs ────────────────────────────────────────────
-(window as any).startGame       = startGame;
-(window as any).nextWave        = nextWave;
-(window as any).continueEndless = continueEndless;
-(window as any).confirmInput    = confirmInput;
-(window as any).clearInput      = clearInput;
+// ─── Auth bootstrap ───────────────────────────────────────────────────────────
+function updateStartScreenForAuth(username: string | null): void {
+  const signInBtn  = document.getElementById('btn-signin')!;
+  const createBtn  = document.getElementById('btn-register')!;
+  const signOutBtn = document.getElementById('btn-signout')!;
+  const playBtn    = document.getElementById('start-play-btn')!;
+
+  if (username) {
+    signInBtn.style.display  = 'none';
+    createBtn.style.display  = 'none';
+    signOutBtn.style.display = 'inline-flex';
+    playBtn.textContent = 'OPEN LOBBY';
+    playBtn.onclick = () => openLobby();
+  } else {
+    signInBtn.style.display  = 'inline-flex';
+    createBtn.style.display  = 'inline-flex';
+    signOutBtn.style.display = 'none';
+    playBtn.textContent = 'PLAY AS GUEST';
+    playBtn.onclick = () => startGame();
+  }
+}
+
+async function bootstrapAuth(): Promise<void> {
+  initUsernameModal();
+
+  initAuthModal((username) => {
+    updateAuthChip(username);
+    updateStartScreenForAuth(username);
+  });
+
+  initLobby((config: LobbyConfig) => {
+    startGame(config);
+  });
+
+  // Wire the play button immediately — before any async resolves.
+  // This guarantees guests can click without waiting for session check.
+  updateStartScreenForAuth(null);
+
+  // Auth chip click → open sign-in when guest
+  document.getElementById('ht')!.addEventListener('click', (e) => {
+    const chip = (e.target as HTMLElement).closest('#auth-chip');
+    if (chip && !getCachedProfile()) openAuthModal('signin');
+  });
+
+  // Start screen auth buttons
+  document.getElementById('btn-signin')!.addEventListener('click', () => openAuthModal('signin'));
+  document.getElementById('btn-register')!.addEventListener('click', () => openAuthModal('signup'));
+  document.getElementById('btn-signout')!.addEventListener('click', async () => {
+    await signOut();
+    clearProfileCache();
+    updateAuthChip(null);
+    updateStartScreenForAuth(null);
+  });
+
+  // Reactive auth state — handles Google OAuth redirect return + session refresh.
+  // Will override the guest wiring above if a session is found.
+  onAuthStateChange(async (user) => {
+    if (user) {
+      await handleUserResolved(user);
+    } else {
+      clearProfileCache();
+      updateAuthChip(null);
+      updateStartScreenForAuth(null);
+    }
+  });
+
+  // Check for an existing persisted session on load.
+  const user = await getCurrentUser();
+  if (user) {
+    await handleUserResolved(user);
+  }
+  // No else needed — updateStartScreenForAuth(null) already called above.
+}
+
+bootstrapAuth();
 
 // ─── Initial layout + resize ──────────────────────────────────────────────────
 window.addEventListener('resize', () => reposition(store.get().px, store.get().py));

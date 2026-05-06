@@ -75,3 +75,29 @@ export function showComboReset(): void {
   document.body.appendChild(f);
   setTimeout(() => f.remove(), 450);
 }
+
+// ── Auth chip (top-right HUD) ──────────────────────
+export function updateAuthChip(username: string | null): void {
+  let chip = document.getElementById('auth-chip');
+  if (!chip) {
+    chip = document.createElement('div');
+    chip.id = 'auth-chip';
+    chip.className = 'hc';
+    document.getElementById('ht')?.appendChild(chip);
+  }
+
+  if (username) {
+    chip.innerHTML = `
+      <span class="hl">Player</span>
+      <span class="hv auth-username">${username}</span>
+    `;
+    chip.style.cursor = 'default';
+    chip.onclick = null;
+  } else {
+    chip.innerHTML = `
+      <span class="hl">Guest</span>
+      <span class="hv auth-username" style="font-size:13px;opacity:.5">Sign In</span>
+    `;
+    chip.style.cursor = 'pointer';
+  }
+}
