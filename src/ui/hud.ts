@@ -1,16 +1,16 @@
 // src/ui/hud.ts
 import type { GameState } from '../types/index';
 
-let scEl:           HTMLElement;
-let comboEl:        HTMLElement;
-let cbarEl:         HTMLElement;
-let ruleEl:         HTMLElement;
-let livesEl:        HTMLElement;
-let waveBadgeEl:    HTMLElement;
+let scEl:            HTMLElement;
+let comboEl:         HTMLElement;
+let cbarEl:          HTMLElement;
+let ruleEl:          HTMLElement;
+let livesEl:         HTMLElement;
+let waveBadgeEl:     HTMLElement;
 let nextWaveLabelEl: HTMLElement;
-let nextWaveBarEl:  HTMLElement;
-let nextWaveReqEl:  HTMLElement;
-let shiftChargeEl:  HTMLElement;
+let nextWaveBarEl:   HTMLElement;
+let nextWaveReqEl:   HTMLElement;
+let shiftChargeEl:   HTMLElement;
 
 export function initHUD(): void {
   scEl             = document.getElementById('sc')!;
@@ -25,19 +25,23 @@ export function initHUD(): void {
   shiftChargeEl    = document.getElementById('shift-charge')!;
 }
 
-export function updateHUD(state: GameState, shiftCharges?: number, shiftProgress?: number): void {
+export function updateHUD(
+  state: GameState,
+  shiftCharges?: number,
+  shiftProgress?: number,
+  shiftCooldown?: boolean,
+): void {
   scEl.textContent        = state.score.toLocaleString();
   comboEl.textContent     = '×' + state.combo;
   livesEl.textContent     = String(state.lives);
   waveBadgeEl.textContent = 'WAVE ' + state.wave;
   ruleEl.innerHTML        = state.activeRule.label;
 
-  // Combo bar — progress toward wave trigger (if combo-based)
   cbarEl.style.width = state.waveTrigger.type === 'combo'
     ? Math.min(100, (state.combo / state.waveTrigger.threshold) * 100) + '%'
     : '0%';
 
-  // ── Next wave floating panel ──
+  // Next wave panel
   const t = state.waveTrigger;
   if (nextWaveLabelEl && nextWaveBarEl && nextWaveReqEl) {
     if (t.type === 'score') {
@@ -53,12 +57,13 @@ export function updateHUD(state: GameState, shiftCharges?: number, shiftProgress
     }
   }
 
-  // ── Shift charge badge ──
+  // Shift charge badge
   if (shiftChargeEl && shiftCharges !== undefined && shiftProgress !== undefined) {
-    // Format: [Q] SHIFT ×N  (progress toward next charge shown as sub-text via title)
     const progressStr = shiftProgress > 0 ? ` (${shiftProgress}/5)` : '';
     shiftChargeEl.textContent = `[Q] SHIFT ×${shiftCharges}${progressStr}`;
-    shiftChargeEl.classList.toggle('ready', shiftCharges > 0);
+    const isReady = shiftCharges > 0 && !shiftCooldown;
+    shiftChargeEl.classList.toggle('ready', isReady);
+    shiftChargeEl.classList.toggle('cooldown', !!shiftCooldown);
   }
 }
 

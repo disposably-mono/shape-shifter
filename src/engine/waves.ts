@@ -3,17 +3,16 @@ import type { LobbyConfig, Rule, WaveTrigger, WaveTriggerType } from '../types/i
 import { RULES, pickRule } from '../config/rules';
 
 // ─── Wave trigger thresholds ─────────────────────────────────────────────────
-// Both use exponential growth from the player-chosen base values.
-// Score:  2000 * 1.45^(wave - 1)
-// Combo:  floor(20 * 1.15^(wave - 1))
-// These are DELTAS — added on top of the snapshot taken at wave start.
+// Combo: fixed linear +5 per wave starting at 20 (20, 25, 30, 35, 40, 45...)
+// Score: exponential from 3500 base — easier grind but escalates hard in endless
+// Both are DELTAS added on top of the snapshot at wave start.
 
 export function getScoreDelta(wave: number): number {
-  return Math.round(2000 * Math.pow(1.45, wave - 1));
+  return Math.round(3500 * Math.pow(1.45, wave - 1));
 }
 
 export function getComboDelta(wave: number): number {
-  return Math.floor(20 * Math.pow(1.15, wave - 1));
+  return 15 + (wave * 5); // wave 1 = 20, wave 2 = 25, wave 3 = 30 ...
 }
 
 /**
@@ -74,7 +73,6 @@ export function pickWaveRule(wave: number, config: LobbyConfig): Rule {
     return pickRule(pool);
   }
 
-  // Wave 5+: full pool; endless mutations override via isMutationWave
   if (isMutationWave(wave)) {
     return getMutationRule(wave);
   }
@@ -84,7 +82,6 @@ export function pickWaveRule(wave: number, config: LobbyConfig): Rule {
 
 /**
  * Endless mutation escalation path (wave 11+, every 5 waves).
- * SHAPE_OR_COLOR → SHAPE_ONLY / COLOR_ONLY → SHAPE_AND_COLOR
  */
 export function getMutationRule(wave: number): Rule {
   const mutationIndex = Math.floor((wave - 11) / 5);

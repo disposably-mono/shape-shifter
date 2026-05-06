@@ -5,13 +5,26 @@ import { COLOR_CSS } from '../config/colors';
 import { C, VIS_R, SPAWN_R, MAX_INPUT } from './constants';
 import { worldX, worldY, gk } from './grid';
 
+const MIN_SPAWN_DIST = 2; // Chebyshev minimum — player always needs ≥2 inputs
+
 let worldEl: HTMLElement;
 let enemyCounter = 0;
 export const enemies: Record<string, Enemy> = {};
 
+// Tracks which enemy IDs were knocked back this tick — they skip marching
+const knockedBackThisTick = new Set<string>();
+
 export function initEnemies(world: HTMLElement): void {
   worldEl = world;
   enemyCounter = 0;
+}
+
+export function markKnockedBack(id: string): void {
+  knockedBackThisTick.add(id);
+}
+
+export function clearKnockbackFlags(): void {
+  knockedBackThisTick.clear();
 }
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
@@ -25,13 +38,7 @@ function makeEnemyEl(def: EnemyDef): { wrap: HTMLElement; shapeEl: HTMLElement }
   sh.style.backgroundColor = COLOR_CSS[def.color] ?? '#fff';
   sh.style.boxShadow = `0 0 6px ${COLOR_CSS[def.color] ?? '#fff'}44`;
 
-  // Valid indicator is a sibling of the shape, not a child —
-  // so it is never clipped by the triangle clip-path.
-  const indicator = document.createElement('div');
-  indicator.className = 'valid-indicator';
-
   wrap.appendChild(sh);
-  wrap.appendChild(indicator);
   return { wrap, shapeEl: sh };
 }
 
@@ -59,6 +66,11 @@ export function occupiedAt(gx: number, gy: number, excludeId?: string): boolean 
   return false;
 }
 
+/** Returns true if position is too close to player (Chebyshev < MIN_SPAWN_DIST) */
+function tooClose(gx: number, gy: number, px: number, py: number): boolean {
+  return Math.max(Math.abs(gx - px), Math.abs(gy - py)) < MIN_SPAWN_DIST;
+}
+
 export function spawnEnemy(
   gx: number,
   gy: number,
@@ -67,6 +79,7 @@ export function spawnEnemy(
   defOverride?: EnemyDef
 ): Enemy | null {
   if (gx === px && gy === py) return null;
+  if (tooClose(gx, gy, px, py)) return null;
   if (occupiedAt(gx, gy)) return null;
 
   const def = defOverride ?? pickDef();
@@ -88,10 +101,12 @@ export function removeEnemy(id: string): void {
   if (!e) return;
   e.el.remove();
   delete enemies[id];
+  knockedBackThisTick.delete(id);
 }
 
 export function clearAllEnemies(): void {
   for (const id of Object.keys(enemies)) removeEnemy(id);
+  knockedBackThisTick.clear();
 }
 
 /** Randomise the shape and color of every live enemy — called on SHIFT */
@@ -117,7 +132,6 @@ export function randomiseAllEnemies(): void {
 export function refreshValid(en: Enemy, rule: Rule, player: PlayerState): void {
   const v = rule.check(en.def, player);
   en.shapeEl.classList.toggle('valid', v);
-  // Indicator lives on the wrapper — toggle via wrapper class so CSS can target it
   en.el.classList.toggle('has-valid', v);
 }
 
@@ -143,9 +157,6 @@ export function repositionEnemies(px: number, py: number): void {
 }
 
 // ─── Ensure valid target visible ─────────────────────────────────────────────
-// Priority 1: within jump range (Manhattan ≤ MAX_INPUT)
-// Priority 2: within visible radius
-// Fallback: anywhere in vis range
 
 export function ensureValidTarget(
   px: number,
@@ -159,24 +170,24 @@ export function ensureValidTarget(
     if (md <= MAX_INPUT && md > 0 && rule.check(e.def, player)) return;
   }
 
-  // Try to spawn one within jump range first (guarantees a chain is always possible)
+  // Try to spawn one within jump range, respecting min distance
   for (let attempt = 0; attempt < 30; attempt++) {
-    const dist = 1 + Math.floor(Math.random() * MAX_INPUT);
+    const dist = MIN_SPAWN_DIST + Math.floor(Math.random() * (MAX_INPUT - MIN_SPAWN_DIST + 1));
     const angle = Math.random() * Math.PI * 2;
     const gx = px + Math.round(Math.cos(angle) * dist);
     const gy = py + Math.round(Math.sin(angle) * dist);
-    if (gx === px && gy === py) continue;
     if (Math.abs(gx - px) + Math.abs(gy - py) > MAX_INPUT) continue;
+    if (tooClose(gx, gy, px, py)) continue;
     if (occupiedAt(gx, gy)) continue;
     spawnEnemy(gx, gy, px, py, pickValidDef(rule, player));
     return;
   }
 
-  // Fallback: anywhere in visible radius
+  // Fallback: anywhere in visible radius beyond min distance
   for (let attempt = 0; attempt < 20; attempt++) {
     const gx = px + Math.floor(Math.random() * (VIS_R * 2 + 1)) - VIS_R;
     const gy = py + Math.floor(Math.random() * (VIS_R * 2 + 1)) - VIS_R;
-    if (gx === px && gy === py) continue;
+    if (tooClose(gx, gy, px, py)) continue;
     if (occupiedAt(gx, gy)) continue;
     spawnEnemy(gx, gy, px, py, pickValidDef(rule, player));
     return;
@@ -207,15 +218,6 @@ function marchOneStep(
   return true;
 }
 
-/**
- * Advances all enemies one march tick.
- * Returns true if an enemy reached the player (triggers SHIFT).
- *
- * Spawn distribution per tick:
- *   ~50% at SPAWN_R (far ring, classic pressure)
- *   ~30% at mid range (VIS_R - 1 .. VIS_R + 1) to replenish visible pool
- *   ~20% guaranteed valid within jump range if valid count is low
- */
 export function marchAll(
   px: number,
   py: number,
@@ -223,7 +225,9 @@ export function marchAll(
   rule: Rule,
   player: PlayerState
 ): boolean {
-  // Count reachable valid targets before spawning
+  // Clear knockback flags at the start of each tick
+  clearKnockbackFlags();
+
   const reachableValid = Object.values(enemies).filter(e => {
     const md = Math.abs(e.gx - px) + Math.abs(e.gy - py);
     return md <= MAX_INPUT && md > 0 && rule.check(e.def, player);
@@ -234,8 +238,7 @@ export function marchAll(
     let radius: number;
 
     if (reachableValid === 0 && i === 0) {
-      // Guarantee a close valid spawn when the player has nothing to chain
-      radius = 1 + Math.floor(Math.random() * MAX_INPUT);
+      radius = MIN_SPAWN_DIST + Math.floor(Math.random() * (MAX_INPUT - MIN_SPAWN_DIST + 1));
       const angle = Math.random() * Math.PI * 2;
       const gx = px + Math.round(Math.cos(angle) * radius);
       const gy = py + Math.round(Math.sin(angle) * radius);
@@ -244,11 +247,11 @@ export function marchAll(
     }
 
     if (roll < 0.5) {
-      radius = SPAWN_R; // far ring
+      radius = SPAWN_R;
     } else if (roll < 0.8) {
-      radius = VIS_R - 1 + Math.floor(Math.random() * 3); // mid range
+      radius = VIS_R - 1 + Math.floor(Math.random() * 3);
     } else {
-      radius = 2 + Math.floor(Math.random() * (MAX_INPUT - 1)); // close ring
+      radius = MIN_SPAWN_DIST + Math.floor(Math.random() * (MAX_INPUT - MIN_SPAWN_DIST + 1));
     }
 
     const angle = Math.random() * Math.PI * 2;
@@ -274,10 +277,14 @@ export function marchAll(
   enemyList.forEach(e => prevPositions.set(e.id, { gx: e.gx, gy: e.gy }));
 
   for (const e of enemyList) {
+    // Skip enemies that were knocked back this tick
+    if (knockedBackThisTick.has(e.id)) continue;
+
     const dist = Math.max(Math.abs(e.gx - px), Math.abs(e.gy - py));
     const steps = dist > VIS_R ? 2 : 1;
     for (let s = 0; s < steps; s++) {
       if (!marchOneStep(e, px, py, moved)) break;
+      // If knockback landing would put enemy on player — treat as shift
       if (e.gx === px && e.gy === py) return true;
     }
   }
@@ -285,6 +292,7 @@ export function marchAll(
   // Resolve overlaps
   const cellMap: Record<string, Enemy[]> = {};
   for (const e of enemyList) {
+    if (!enemies[e.id]) continue; // may have been removed
     const k = gk(e.gx, e.gy);
     if (!cellMap[k]) cellMap[k] = [];
     cellMap[k].push(e);

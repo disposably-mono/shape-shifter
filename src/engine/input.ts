@@ -38,7 +38,7 @@ function handleKey(e: KeyboardEvent): void {
     confirm();
     return;
   }
-  if (e.key === 'Escape' || e.key === 'Backspace') {
+  if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'r' || e.key === 'R') {
     e.preventDefault();
     clear();
     return;

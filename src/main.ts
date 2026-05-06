@@ -65,9 +65,11 @@ let metroBeat = 0;
 // ─── Perfect shift charge tracker ────────────────────────────────────────────
 const PERFECT_KILLS_PER_CHARGE = 5;
 const MAX_SHIFT_CHARGES = 3;
+const SHIFT_COOLDOWN_MS = 1000;
 
-let perfectShiftCharges = 1;
-let perfectKillCounter  = 0;
+let perfectShiftCharges  = 1;
+let perfectKillCounter   = 0;
+let shiftOnCooldown      = false;
 
 function onPerfectKill(): void {
   perfectKillCounter++;
@@ -80,7 +82,7 @@ function onPerfectKill(): void {
 
 // ─── HUD helper ───────────────────────────────────────────────────────────────
 function hudUpdate(): void {
-  updateHUD(store.get(), perfectShiftCharges, perfectKillCounter);
+  updateHUD(store.get(), perfectShiftCharges, perfectKillCounter, shiftOnCooldown);
 }
 
 // ─── March timer ──────────────────────────────────────────────────────────────
@@ -148,8 +150,9 @@ initInput({
     if (s.activeRule.check(target.def, s.player)) {
       const fromGX = s.px, fromGY = s.py;
       const exact = isExactMatch(target.def, s.player);
+      const elimShape = target.def.shape; // capture before removal
 
-      displaceNearby(tx, ty, s.px, s.py, s.activeRule, s.player, worldEl);
+      displaceNearby(tx, ty, s.px, s.py, s.activeRule, s.player, worldEl, elimShape);
       removeEnemy(target.id);
       store.update(() => ({ px: tx, py: ty }));
       const ns = store.get();
@@ -298,7 +301,6 @@ function doShift(): void {
     (document.getElementById('lose-s') as HTMLElement).textContent =
       `SCORE: ${ns.score.toLocaleString()}  |  WAVE: ${ns.wave}  |  COMBO: ×${ns.maxCombo}`;
 
-    // Show or hide guest CTA based on auth state
     const guestCta = document.getElementById('guest-cta')!;
     guestCta.style.display = getCachedProfile() ? 'none' : 'flex';
 
@@ -313,9 +315,17 @@ function doShift(): void {
 // ─── Perfect SHIFT (Q hotkey) ─────────────────────────────────────────────────
 function doPerfectShift(): void {
   const s = store.get();
-  if (!s.gameActive || perfectShiftCharges <= 0) return;
+  if (!s.gameActive || perfectShiftCharges <= 0 || shiftOnCooldown) return;
 
   perfectShiftCharges--;
+  shiftOnCooldown = true;
+  hudUpdate();
+
+  // Re-enable after cooldown
+  setTimeout(() => {
+    shiftOnCooldown = false;
+    hudUpdate();
+  }, SHIFT_COOLDOWN_MS);
 
   const gain = calcPerfectShiftScore(s.combo, s.config.difficulty);
   const newPlayer = executeBonusShift(s.px, s.py);
@@ -372,7 +382,6 @@ function advanceWave(): void {
   const s = store.get();
   const nextWaveNum = s.wave + 1;
 
-  // Snapshot current score and maxCombo as the delta baseline for the new wave
   const waveBaseScore = s.score;
   const waveBaseCombo = s.maxCombo;
 
@@ -404,32 +413,27 @@ function advanceWave(): void {
   }, 1800);
 }
 
+// ─── Wave banner — same animation as SHIFT message ───────────────────────────
 function showWaveBanner(wave: number, ruleLabel: string, mutation: boolean): void {
   const existing = document.getElementById('wave-banner');
   if (existing) existing.remove();
+
   const banner = document.createElement('div');
   banner.id = 'wave-banner';
   banner.innerHTML = `
-    <span>WAVE ${wave}</span>
-    <small style="display:block;font-size:9px;opacity:.6;margin-top:4px;">
-      ${mutation ? '⚡ RULE MUTATION — ' : ''}${ruleLabel}
-    </small>`;
-  banner.style.cssText = [
-    'position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-100%)',
-    'background:var(--hud-bg);border:1px solid var(--hud-border)',
-    'padding:12px 28px;border-radius:0 0 8px 8px',
-    'font-family:Orbitron,sans-serif;font-size:12px;letter-spacing:2px',
-    'color:var(--white);z-index:200;text-align:center',
-    'transition:transform .4s cubic-bezier(.23,1.2,.32,1)',
-  ].join(';');
+    <span class="wave-banner-num">WAVE ${wave}</span>
+    <small class="wave-banner-rule">${mutation ? '⚡ ' : ''}${ruleLabel}</small>
+  `;
   document.body.appendChild(banner);
+
+  // Force reflow then animate
   void banner.offsetWidth;
-  banner.style.transform = 'translateX(-50%) translateY(0)';
+  banner.classList.add('active');
+
   setTimeout(() => {
-    banner.style.transition += ',opacity .5s';
-    banner.style.opacity = '0';
-    setTimeout(() => banner.remove(), 600);
-  }, 1200);
+    banner.classList.remove('active');
+    setTimeout(() => banner.remove(), 400);
+  }, 1400);
 }
 
 // ─── Game flow ────────────────────────────────────────────────────────────────
@@ -463,6 +467,7 @@ function startGame(config?: LobbyConfig): void {
 
   perfectShiftCharges = 1;
   perfectKillCounter  = 0;
+  shiftOnCooldown     = false;
 
   const s = store.get();
   renderPlayer(s.player);
@@ -529,17 +534,14 @@ async function bootstrapAuth(): Promise<void> {
     startGame(config);
   });
 
-  // Wire the play button immediately — before any async resolves.
-  // This guarantees guests can click without waiting for session check.
+  // Wire immediately so guests can play before async resolves
   updateStartScreenForAuth(null);
 
-  // Auth chip click → open sign-in when guest
   document.getElementById('ht')!.addEventListener('click', (e) => {
     const chip = (e.target as HTMLElement).closest('#auth-chip');
     if (chip && !getCachedProfile()) openAuthModal('signin');
   });
 
-  // Start screen auth buttons
   document.getElementById('btn-signin')!.addEventListener('click', () => openAuthModal('signin'));
   document.getElementById('btn-register')!.addEventListener('click', () => openAuthModal('signup'));
   document.getElementById('btn-signout')!.addEventListener('click', async () => {
@@ -549,8 +551,6 @@ async function bootstrapAuth(): Promise<void> {
     updateStartScreenForAuth(null);
   });
 
-  // Reactive auth state — handles Google OAuth redirect return + session refresh.
-  // Will override the guest wiring above if a session is found.
   onAuthStateChange(async (user) => {
     if (user) {
       await handleUserResolved(user);
@@ -561,12 +561,10 @@ async function bootstrapAuth(): Promise<void> {
     }
   });
 
-  // Check for an existing persisted session on load.
   const user = await getCurrentUser();
   if (user) {
     await handleUserResolved(user);
   }
-  // No else needed — updateStartScreenForAuth(null) already called above.
 }
 
 bootstrapAuth();
