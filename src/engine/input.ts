@@ -53,6 +53,8 @@ export function push(dir: Direction): void {
   callbacks?.onPush([...seq]);
 }
 
+export const pushDirection = push;
+
 export function confirm(): void {
   if (!active) return;
   if (!seq.length) return;

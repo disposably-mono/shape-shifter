@@ -19,6 +19,7 @@ import { calcScore, calcPerfectShiftScore } from './engine/scoring';
 import { initHUD, updateHUD, flashCombo, showComboReset } from './ui/hud';
 import { showOverlay, hideAllOverlays } from './ui/overlays';
 import { initMetronome, tickMetronome, showMetronome, hideMetronome } from './ui/metronome';
+import { initDpad } from './ui/dpad';
 import {
   sfxElim, sfxComboReset, sfxShift,
   sfxComboMilestone, sfxWaveUp,
@@ -51,6 +52,7 @@ initEnemies(worldEl);
 initProjection(projEl, projBody, trailSvg);
 initHUD();
 initMetronome();
+initDpad();
 
 // ─── Metro beat tracker ───────────────────────────────────────────────────────
 let metroBeat = 0;

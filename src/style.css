@@ -629,3 +629,167 @@ body {
   box-shadow: none;
   transform: scale(1.03);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PHASE 2 ADDITIONS — append to the bottom of src/style.css
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── AUTH ROW (start screen) ── */
+.auth-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.auth-divider {
+  font-size: 10px;
+  opacity: .25;
+  color: var(--off);
+}
+.auth-coming {
+  font-size: 9px;
+  opacity: .25;
+  letter-spacing: 1px;
+  color: var(--off);
+  font-family: 'Share Tech Mono', monospace;
+}
+.obtn-link {
+  background: transparent;
+  border: 1px solid var(--hud-border);
+  border-radius: 3px;
+  color: var(--off);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  letter-spacing: 2px;
+  padding: 7px 16px;
+  cursor: pointer;
+  opacity: .45;
+  transition: opacity .2s, border-color .2s, color .2s;
+}
+.obtn-link:not([disabled]):hover {
+  opacity: 1;
+  border-color: var(--ocean-blue);
+  color: var(--white);
+}
+.obtn-link[disabled] {
+  cursor: not-allowed;
+  opacity: .2;
+}
+
+/* ── GUEST CTA (lose screen) ── */
+.guest-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px 24px;
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  background: rgba(17,138,178,.06);
+  max-width: 340px;
+  text-align: center;
+}
+.guest-cta p {
+  font-size: 10px !important;
+  opacity: .45 !important;
+  letter-spacing: 1px;
+  line-height: 1.7;
+}
+
+/* ── VIRTUAL D-PAD ── */
+#dpad {
+  display: none;               /* hidden on desktop; JS shows on touch devices */
+  position: fixed;
+  bottom: 28px;
+  left: 20px;
+  z-index: 30;
+  /* container sized to: 3 × button-size (54px) = 162px, but center col only */
+  width: 162px;
+  height: 162px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;          /* prevent browser handling any touch on the pad */
+}
+
+.dpad-btn {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  background: rgba(5,37,53,0.88);
+  border: 1px solid var(--hud-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--off);
+  font-size: 20px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background .08s, border-color .08s, color .08s;
+  -webkit-tap-highlight-color: transparent;
+  /* Ensure the full area is tappable */
+  touch-action: none;
+}
+.dpad-btn:active,
+.dpad-btn.pressed {
+  background: rgba(6,214,160,.18);
+  border-color: var(--emerald);
+  color: var(--emerald);
+  box-shadow: 0 0 10px rgba(6,214,160,.35);
+}
+
+/* Cross layout with 54px buttons:
+   up:    top=0,   left=54px
+   left:  top=54px, left=0
+   center: top=54px, left=54px  (decorative)
+   right: top=54px, left=108px
+   down:  top=108px, left=54px  */
+#dpad-up     { top: 0;     left: 54px; }
+#dpad-down   { top: 108px; left: 54px; }
+#dpad-left   { top: 54px;  left: 0;    }
+#dpad-right  { top: 54px;  left: 108px; }
+
+#dpad-center {
+  position: absolute;
+  top: 54px; left: 54px;
+  width: 54px; height: 54px;
+  background: rgba(5,37,53,0.5);
+  border: 1px solid var(--hud-border);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+/* ── MOBILE: show d-pad, shift input panel right ── */
+@media (pointer: coarse) {
+  #dpad { display: block; }
+
+  /* Shift input panel to the right so it clears the d-pad */
+  #hb {
+    left: auto;
+    right: 16px;
+    transform: none;
+  }
+
+  /* Metronome stays left but moves up slightly to clear d-pad */
+  #metronome {
+    left: 8px;
+    top: 38%;
+  }
+}
+
+/* ── MOBILE 480px: scale d-pad down slightly ── */
+@media (max-width: 480px) and (pointer: coarse) {
+  #dpad {
+    width: 138px;
+    height: 138px;
+    bottom: 20px;
+    left: 12px;
+  }
+  .dpad-btn        { width: 46px; height: 46px; font-size: 18px; }
+  #dpad-up         { top: 0;    left: 46px; }
+  #dpad-down       { top: 92px; left: 46px; }
+  #dpad-left       { top: 46px; left: 0;    }
+  #dpad-right      { top: 46px; left: 92px; }
+  #dpad-center     { top: 46px; left: 46px; width: 46px; height: 46px; }
+}
