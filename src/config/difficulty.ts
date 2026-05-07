@@ -12,9 +12,9 @@ import type { DifficultyTier, DifficultyConfig, DifficultyCalc } from '../types/
 
 const BPM_MARCH_TICK: Record<DifficultyTier, number> = {
   easy:   750,
-  normal: 545,
-  hard:   469,
-  brutal: 375,
+  normal: 600,
+  hard:   500,
+  brutal: 462,
 };
 
 export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyConfig> = {
