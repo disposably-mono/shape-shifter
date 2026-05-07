@@ -715,6 +715,26 @@ async function bootstrapAuth(): Promise<void> {
 bootstrapAuth();
 initStartCanvas();
 
+// ─── Intro animation: start screen begins with centered canvas, click to reveal full UI ───
+const startOverlayEl = document.getElementById('start-ov')!;
+const startCanvasEl = document.getElementById('start-canvas')!;
+
+// Begin in intro state (canvas fullscreen, left panel hidden)
+startOverlayEl.classList.add('intro');
+
+// Click on canvas to reveal left panel
+startCanvasEl.addEventListener('click', () => {
+  startOverlayEl.classList.remove('intro');
+});
+
+// Also allow keyboard reveal
+document.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (startOverlayEl.classList.contains('intro') && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    startOverlayEl.classList.remove('intro');
+  }
+});
+
 // ─── Initial layout + resize ──────────────────────────────────────────────────
 window.addEventListener('resize', () => reposition(store.get().px, store.get().py));
 reposition(0, 0);

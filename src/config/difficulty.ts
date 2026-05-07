@@ -11,10 +11,10 @@ import type { DifficultyTier, DifficultyConfig, DifficultyCalc } from '../types/
 //  Brutal → 160 BPM →  375ms  drum & bass
 
 const BPM_MARCH_TICK: Record<DifficultyTier, number> = {
-  easy:   750,
-  normal: 600,
-  hard:   500,
-  brutal: 462,
+  easy:   1000,   // 60 BPM
+  normal: 750,    // 80 BPM
+  hard:   600,    // 100 BPM
+  brutal: 500,    // 120 BPM
 };
 
 export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyConfig> = {
