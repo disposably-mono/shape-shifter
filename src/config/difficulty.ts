@@ -1,42 +1,38 @@
 // src/config/difficulty.ts
 import type { DifficultyTier, DifficultyConfig, DifficultyCalc } from '../types/index';
 
-export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyConfig> = {
-  easy:   { tier: 'easy',   marchSpeedMultiplier: 0.75, spawnRateMultiplier: 0.75, scoreMultiplier: 0.5  },
-  normal: { tier: 'normal', marchSpeedMultiplier: 1.0,  spawnRateMultiplier: 1.0,  scoreMultiplier: 1.0  },
-  hard:   { tier: 'hard',   marchSpeedMultiplier: 1.3,  spawnRateMultiplier: 1.3,  scoreMultiplier: 1.5  },
-  brutal: { tier: 'brutal', marchSpeedMultiplier: 1.6,  spawnRateMultiplier: 1.6,  scoreMultiplier: 2.5  },
+// ─── BPM-based march ticks ───────────────────────────────────────────────────
+// Each tier locks to a real BPM so players can sync background music.
+// marchTick (ms) = 60000 / BPM
+//
+//  Easy   →  80 BPM →  750ms  lo-fi / slow hip-hop
+//  Normal → 110 BPM →  545ms  mid-tempo pop
+//  Hard   → 128 BPM →  469ms  house / dance
+//  Brutal → 160 BPM →  375ms  drum & bass
+
+const BPM_MARCH_TICK: Record<DifficultyTier, number> = {
+  easy:   750,
+  normal: 545,
+  hard:   469,
+  brutal: 375,
 };
 
-/**
- * March speed — logarithmic decay so early waves feel approachable
- * and the floor is only reached deep into endless mode.
- *
- * Formula: 1200 - 260 * ln(wave + 1), clamped to [450, 1200]
- *
- * Wave 1:  1200ms   Wave 5:  792ms
- * Wave 2:  1034ms   Wave 8:  688ms
- * Wave 3:   933ms   Wave 12: 590ms
- * Wave 4:   855ms   Wave 20: 500ms
- */
-function baseMarchTick(wave: number): number {
-  return Math.round(Math.max(450, Math.min(1200, 1200 - 260 * Math.log(wave + 1))));
-}
+export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyConfig> = {
+  easy:   { tier: 'easy',   marchSpeedMultiplier: 1.0, spawnRateMultiplier: 0.75, scoreMultiplier: 0.5  },
+  normal: { tier: 'normal', marchSpeedMultiplier: 1.0, spawnRateMultiplier: 1.0,  scoreMultiplier: 1.0  },
+  hard:   { tier: 'hard',   marchSpeedMultiplier: 1.0, spawnRateMultiplier: 1.3,  scoreMultiplier: 1.5  },
+  brutal: { tier: 'brutal', marchSpeedMultiplier: 1.0, spawnRateMultiplier: 1.6,  scoreMultiplier: 2.5  },
+};
 
-/**
- * Spawn count — wave-only scaling, no combo inflation.
- * Combo pressure comes from march speed and trigger thresholds instead.
- *
- * Formula: 2 + floor(wave / 3)
- *
- * Wave 1–2: 2   Wave 6–8: 4   Wave 12–14: 6
- * Wave 3–5: 3   Wave 9–11: 5  Wave 15+:   7
- */
-function baseSpawnCount(wave: number): number {
-  return 2 + Math.floor(wave / 3);
-}
+// Wave trigger threshold multiplier per tier.
+// Lower tier = easier requirements, higher tier = harder grind.
+export const THRESHOLD_MULTIPLIER: Record<DifficultyTier, number> = {
+  easy:   0.6,
+  normal: 1.0,
+  hard:   1.4,
+  brutal: 2.0,
+};
 
-// Small per-rule spawn bonus retained but capped low
 const RULE_SPAWN_BONUS: Record<string, number> = {
   SHAPE_OR_COLOR:  0,
   SHAPE_ONLY:      1,
@@ -44,16 +40,29 @@ const RULE_SPAWN_BONUS: Record<string, number> = {
   SHAPE_AND_COLOR: 2,
 };
 
+// Base spawn count: wave-only scaling, no combo inflation
+function baseSpawnCount(wave: number): number {
+  return 2 + Math.floor(wave / 3);
+}
+
+// Endless spawn pressure: +5% per wave beyond wave 10, capped at 3×
+function endlessMultiplier(wave: number): number {
+  if (wave <= 10) return 1;
+  return Math.min(3, Math.pow(1.05, wave - 10));
+}
+
 export function getDifficulty(
   tier: DifficultyTier,
   wave: number,
-  _combo: number,        // retained in signature for API compat, no longer used in formula
+  _combo: number,
   ruleId = 'SHAPE_OR_COLOR',
 ): DifficultyCalc {
-  const cfg = DIFFICULTY_TIERS[tier];
-  const marchTick  = Math.round(baseMarchTick(wave) / cfg.marchSpeedMultiplier);
+  const cfg       = DIFFICULTY_TIERS[tier];
+  const marchTick = BPM_MARCH_TICK[tier];
   const ruleBonus  = RULE_SPAWN_BONUS[ruleId] ?? 0;
-  const spawnCount = Math.round((baseSpawnCount(wave) + ruleBonus) * cfg.spawnRateMultiplier);
+  const spawnCount = Math.round(
+    (baseSpawnCount(wave) + ruleBonus) * cfg.spawnRateMultiplier * endlessMultiplier(wave)
+  );
   return { marchTick, spawnCount };
 }
 

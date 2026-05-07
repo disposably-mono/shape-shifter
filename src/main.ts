@@ -11,7 +11,10 @@ import {
   marchAll, refreshAllValid, repositionEnemies, ensureValidTarget,
   randomiseAllEnemies,
 } from './engine/enemies';
-import { initInput, setInputActive, confirm as confirmInput, clear as clearInput, resetSeq } from './engine/input';
+import {
+  initInput, setInputActive, setOverlayCallbacks,
+  confirm as confirmInput, clear as clearInput, resetSeq,
+} from './engine/input';
 import { initProjection, updateProjection, drawTrail } from './engine/projection';
 import { displaceNearby, executeShift, executeBonusShift } from './engine/combat';
 import { isExactMatch } from './config/rules';
@@ -64,17 +67,17 @@ let metroBeat = 0;
 
 // ─── Perfect shift charge tracker ────────────────────────────────────────────
 const PERFECT_KILLS_PER_CHARGE = 5;
-const MAX_SHIFT_CHARGES = 3;
-const SHIFT_COOLDOWN_MS = 1000;
+const MAX_SHIFT_CHARGES        = 3;
+const SHIFT_COOLDOWN_MS        = 1000;
 
-let perfectShiftCharges  = 1;
-let perfectKillCounter   = 0;
-let shiftOnCooldown      = false;
+let perfectShiftCharges = 1;
+let perfectKillCounter  = 0;
+let shiftOnCooldown     = false;
 
 function onPerfectKill(): void {
   perfectKillCounter++;
   if (perfectKillCounter >= PERFECT_KILLS_PER_CHARGE) {
-    perfectKillCounter = 0;
+    perfectKillCounter  = 0;
     perfectShiftCharges = Math.min(perfectShiftCharges + 1, MAX_SHIFT_CHARGES);
   }
   hudUpdate();
@@ -94,7 +97,7 @@ function stopMarchTimer(): void {
 
 function startMarchTimer(): void {
   stopMarchTimer();
-  const s = store.get();
+  const s    = store.get();
   const diff = getDifficulty(s.config.difficulty, s.wave, s.combo, s.activeRule.id);
   document.documentElement.style.setProperty('--metro-duration', diff.marchTick + 'ms');
   marchTimer = setInterval(marchTick, diff.marchTick);
@@ -113,10 +116,13 @@ function marchTick(): void {
   tickMetronome();
   metroBeat === 0 ? sfxMetronomeDown() : sfxMetronomeUp();
 
+  // Pulse start-screen canvas on beat if visible
+  pulsStartCanvas();
+
   const diff = getDifficulty(s.config.difficulty, s.wave, s.combo, s.activeRule.id);
-  const hit = marchAll(s.px, s.py, diff.spawnCount, s.activeRule, s.player);
+  const hit  = marchAll(s.px, s.py, diff.spawnCount, s.activeRule, s.player);
   if (hit) { doShift(); return; }
-  refreshAllValid(s.activeRule, s.player);
+  refreshAllValid(s.activeRule, s.player, s.px, s.py);
   hudUpdate();
 }
 
@@ -142,15 +148,15 @@ initInput({
       doComboReset(); resetSeq(); store.set({ inputSeq: [] }); return;
     }
 
-    const tx = s.px + dx, ty = s.py + dy;
+    const tx     = s.px + dx, ty = s.py + dy;
     const target = Object.values(enemies).find(e => e.gx === tx && e.gy === ty);
 
     if (!target) { doComboReset(); resetSeq(); store.set({ inputSeq: [] }); return; }
 
     if (s.activeRule.check(target.def, s.player)) {
-      const fromGX = s.px, fromGY = s.py;
-      const exact = isExactMatch(target.def, s.player);
-      const elimShape = target.def.shape; // capture before removal
+      const fromGX    = s.px, fromGY = s.py;
+      const exact     = isExactMatch(target.def, s.player);
+      const elimShape = target.def.shape;
 
       displaceNearby(tx, ty, s.px, s.py, s.activeRule, s.player, worldEl, elimShape);
       removeEnemy(target.id);
@@ -162,7 +168,7 @@ initInput({
       reposition(ns.px, ns.py);
 
       if (exact) {
-        const gain = calcPerfectShiftScore(ns.combo, ns.config.difficulty);
+        const gain      = calcPerfectShiftScore(ns.combo, ns.config.difficulty);
         const newPlayer = executeBonusShift(ns.px, ns.py);
         store.update(st => ({
           combo:    st.combo + 2,
@@ -178,9 +184,10 @@ initInput({
         setTimeout(() => shiftMsg.classList.remove('active', 'bonus'), 1000);
         renderPlayer(store.get().player);
         randomiseAllEnemies();
-        refreshAllValid(ns.activeRule, store.get().player);
+        const ns2 = store.get();
+        refreshAllValid(ns.activeRule, ns2.player, ns2.px, ns2.py);
         flashCombo();
-        sfxComboMilestone(store.get().combo);
+        sfxComboMilestone(ns2.combo);
       } else {
         const gain = calcScore(ns.combo, ns.config.difficulty);
         store.update(st => ({
@@ -194,8 +201,9 @@ initInput({
       }
 
       refreshMarchTimer();
-      ensureValidTarget(ns.px, ns.py, ns.activeRule, store.get().player);
-      refreshAllValid(ns.activeRule, store.get().player);
+      const fs = store.get();
+      ensureValidTarget(fs.px, fs.py, fs.activeRule, fs.player);
+      refreshAllValid(fs.activeRule, fs.player, fs.px, fs.py);
       hudUpdate();
       checkWaveTrigger();
     } else {
@@ -205,7 +213,8 @@ initInput({
     resetSeq();
     store.set({ inputSeq: [] });
     renderSlots([]);
-    updateProjection([], store.get().px, store.get().py, store.get().player, store.get().gameActive);
+    const cs = store.get();
+    updateProjection([], cs.px, cs.py, cs.player, cs.gameActive);
   },
   onClear() {
     store.set({ inputSeq: [] });
@@ -215,12 +224,25 @@ initInput({
   },
 });
 
+// ─── Overlay keyboard shortcuts (Enter = retry, Backspace = configure) ────────
+setOverlayCallbacks({
+  onRetry:     () => startGame(),
+  onConfigure: () => {
+    hideAllOverlays();
+    openLobby();
+  },
+});
+
 // ─── Button event wiring ──────────────────────────────────────────────────────
 document.getElementById('eb')!.addEventListener('click', confirmInput);
 document.getElementById('cb')!.addEventListener('click', clearInput);
 document.getElementById('win-retry-btn')!.addEventListener('click', () => startGame());
 document.getElementById('win-endless-btn')!.addEventListener('click', continueEndless);
 document.getElementById('lose-retry-btn')!.addEventListener('click', () => startGame());
+document.getElementById('lose-configure-btn')!.addEventListener('click', () => {
+  hideAllOverlays();
+  openLobby();
+});
 document.getElementById('guest-cta-btn')!.addEventListener('click', () => openAuthModal('signup'));
 
 // ─── Hotkey: Q = manual perfect shift ────────────────────────────────────────
@@ -290,7 +312,7 @@ function doShift(): void {
   const ns = store.get();
   renderPlayer(ns.player);
   randomiseAllEnemies();
-  refreshAllValid(ns.activeRule, ns.player);
+  refreshAllValid(ns.activeRule, ns.player, ns.px, ns.py);
   reposition(ns.px, ns.py);
   hudUpdate();
 
@@ -321,13 +343,12 @@ function doPerfectShift(): void {
   shiftOnCooldown = true;
   hudUpdate();
 
-  // Re-enable after cooldown
   setTimeout(() => {
     shiftOnCooldown = false;
     hudUpdate();
   }, SHIFT_COOLDOWN_MS);
 
-  const gain = calcPerfectShiftScore(s.combo, s.config.difficulty);
+  const gain      = calcPerfectShiftScore(s.combo, s.config.difficulty);
   const newPlayer = executeBonusShift(s.px, s.py);
   store.update(st => ({
     combo:    st.combo + 2,
@@ -345,7 +366,7 @@ function doPerfectShift(): void {
   const ns = store.get();
   renderPlayer(ns.player);
   randomiseAllEnemies();
-  refreshAllValid(ns.activeRule, ns.player);
+  refreshAllValid(ns.activeRule, ns.player, ns.px, ns.py);
   reposition(ns.px, ns.py);
   flashCombo();
   sfxComboMilestone(ns.combo);
@@ -380,8 +401,7 @@ function doWin(): void {
 function advanceWave(): void {
   stopMarchTimer();
   const s = store.get();
-  const nextWaveNum = s.wave + 1;
-
+  const nextWaveNum   = s.wave + 1;
   const waveBaseScore = s.score;
   const waveBaseCombo = s.maxCombo;
 
@@ -391,6 +411,7 @@ function advanceWave(): void {
     s.config.waveTrigger,
     waveBaseScore,
     waveBaseCombo,
+    s.config.difficulty,
   );
   const mutation = isMutationWave(nextWaveNum);
 
@@ -413,7 +434,6 @@ function advanceWave(): void {
   }, 1800);
 }
 
-// ─── Wave banner — same animation as SHIFT message ───────────────────────────
 function showWaveBanner(wave: number, ruleLabel: string, mutation: boolean): void {
   const existing = document.getElementById('wave-banner');
   if (existing) existing.remove();
@@ -425,8 +445,6 @@ function showWaveBanner(wave: number, ruleLabel: string, mutation: boolean): voi
     <small class="wave-banner-rule">${mutation ? '⚡ ' : ''}${ruleLabel}</small>
   `;
   document.body.appendChild(banner);
-
-  // Force reflow then animate
   void banner.offsetWidth;
   banner.classList.add('active');
 
@@ -441,8 +459,8 @@ function spawnInitialEnemies(): void {
   const s = store.get();
   for (let i = 0; i < 8; i++) {
     const angle = (i / 8) * Math.PI * 2;
-    const gx = s.px + Math.round(Math.cos(angle) * SPAWN_R);
-    const gy = s.py + Math.round(Math.sin(angle) * SPAWN_R);
+    const gx    = s.px + Math.round(Math.cos(angle) * SPAWN_R);
+    const gy    = s.py + Math.round(Math.sin(angle) * SPAWN_R);
     spawnEnemy(gx, gy, s.px, s.py);
   }
   ensureValidTarget(s.px, s.py, s.activeRule, s.player);
@@ -459,8 +477,8 @@ function startGame(config?: LobbyConfig): void {
   const trigger = generateWaveTrigger(
     activeConfig.startingWave,
     activeConfig.waveTrigger,
-    0,
-    0,
+    0, 0,
+    activeConfig.difficulty,
   );
 
   resetStore(activeConfig, rule, trigger);
@@ -468,6 +486,9 @@ function startGame(config?: LobbyConfig): void {
   perfectShiftCharges = 1;
   perfectKillCounter  = 0;
   shiftOnCooldown     = false;
+
+  // Clear any leftover input from previous run
+  resetSeq();
 
   const s = store.get();
   renderPlayer(s.player);
@@ -500,6 +521,129 @@ function nextWave(): void {
   advanceWave();
 }
 
+// ─── Start screen canvas animation ───────────────────────────────────────────
+// Single shape morphing circle→square→triangle, color cycling, beats on metro
+
+const PALETTE = ['#ef476f','#06d6a0','#118ab2','#ffd166','#ffffff'];
+let canvasShape      = 0;   // 0=circle, 1=square, 2=triangle
+let canvasColor      = 0;
+let canvasMorphT     = 0;   // 0→1 morph progress
+let canvasBeat       = false;
+let canvasAnimId     = 0;
+let canvasLastTime   = 0;
+const MORPH_DURATION = 1800; // ms per full morph cycle
+
+function initStartCanvas(): void {
+  const canvas = document.getElementById('start-canvas') as HTMLCanvasElement;
+  if (!canvas) return;
+
+  function resize() {
+    const parent = canvas.parentElement!;
+    canvas.width  = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function draw(now: number) {
+    const dt = now - canvasLastTime;
+    canvasLastTime = now;
+
+    canvasMorphT = (canvasMorphT + dt / MORPH_DURATION) % 1;
+    if (canvasMorphT < dt / MORPH_DURATION) {
+      // Completed a morph cycle — advance shape and color
+      canvasShape = (canvasShape + 1) % 3;
+      canvasColor = (canvasColor + 1) % PALETTE.length;
+    }
+
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const cx  = canvas.width  / 2;
+    const cy  = canvas.height / 2;
+    const r   = Math.min(canvas.width, canvas.height) * 0.28;
+    const col = PALETTE[canvasColor];
+
+    // Beat pulse
+    const beatScale = canvasBeat ? 1.12 : 1.0;
+    const scale     = beatScale + Math.sin(canvasMorphT * Math.PI * 2) * 0.04;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+
+    // Glow
+    ctx.shadowBlur  = 48;
+    ctx.shadowColor = col;
+    ctx.fillStyle   = col;
+    ctx.globalAlpha = 0.18;
+
+    drawShape(ctx, canvasShape, r * 1.4);
+    ctx.fill();
+
+    // Core shape
+    ctx.globalAlpha = 0.82;
+    ctx.shadowBlur  = 24;
+    drawShape(ctx, canvasShape, r);
+    ctx.fill();
+
+    // Inner highlight
+    ctx.globalAlpha = 0.22;
+    ctx.shadowBlur  = 0;
+    ctx.fillStyle   = '#ffffff';
+    drawShape(ctx, canvasShape, r * 0.35);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Dim grid dots in background for texture
+    ctx.globalAlpha = 0.04;
+    ctx.fillStyle   = '#06d6a0';
+    const spacing   = 40;
+    for (let x = spacing / 2; x < canvas.width; x += spacing) {
+      for (let y = spacing / 2; y < canvas.height; y += spacing) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    if (canvasBeat) canvasBeat = false;
+    canvasAnimId = requestAnimationFrame(draw);
+  }
+
+  canvasLastTime = performance.now();
+  canvasAnimId   = requestAnimationFrame(draw);
+}
+
+function drawShape(ctx: CanvasRenderingContext2D, shape: number, r: number): void {
+  ctx.beginPath();
+  if (shape === 0) {
+    // Circle
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+  } else if (shape === 1) {
+    // Square (rounded)
+    const s = r * 0.85;
+    ctx.roundRect(-s, -s, s * 2, s * 2, s * 0.18);
+  } else {
+    // Triangle
+    const h = r * 1.1;
+    ctx.moveTo(0, -h);
+    ctx.lineTo(h * 0.866, h * 0.5);
+    ctx.lineTo(-h * 0.866, h * 0.5);
+    ctx.closePath();
+  }
+}
+
+// Called from marchTick to pulse the canvas on beat
+function pulsStartCanvas(): void {
+  const startOv = document.getElementById('start-ov');
+  if (startOv && startOv.style.display !== 'none') {
+    canvasBeat = true;
+  }
+}
+
 // ─── Auth bootstrap ───────────────────────────────────────────────────────────
 function updateStartScreenForAuth(username: string | null): void {
   const signInBtn  = document.getElementById('btn-signin')!;
@@ -511,14 +655,14 @@ function updateStartScreenForAuth(username: string | null): void {
     signInBtn.style.display  = 'none';
     createBtn.style.display  = 'none';
     signOutBtn.style.display = 'inline-flex';
-    playBtn.textContent = 'OPEN LOBBY';
-    playBtn.onclick = () => openLobby();
+    playBtn.textContent = 'START RUN';
+    playBtn.onclick     = () => startGame();
   } else {
     signInBtn.style.display  = 'inline-flex';
     createBtn.style.display  = 'inline-flex';
     signOutBtn.style.display = 'none';
-    playBtn.textContent = 'PLAY AS GUEST';
-    playBtn.onclick = () => startGame();
+    playBtn.textContent = 'START RUN';
+    playBtn.onclick     = () => startGame();
   }
 }
 
@@ -534,8 +678,11 @@ async function bootstrapAuth(): Promise<void> {
     startGame(config);
   });
 
-  // Wire immediately so guests can play before async resolves
+  // Wire immediately — guests can play before async resolves
   updateStartScreenForAuth(null);
+
+  // Configure run button on start screen opens lobby
+  document.getElementById('start-configure-btn')!.addEventListener('click', () => openLobby());
 
   document.getElementById('ht')!.addEventListener('click', (e) => {
     const chip = (e.target as HTMLElement).closest('#auth-chip');
@@ -562,12 +709,11 @@ async function bootstrapAuth(): Promise<void> {
   });
 
   const user = await getCurrentUser();
-  if (user) {
-    await handleUserResolved(user);
-  }
+  if (user) await handleUserResolved(user);
 }
 
 bootstrapAuth();
+initStartCanvas();
 
 // ─── Initial layout + resize ──────────────────────────────────────────────────
 window.addEventListener('resize', () => reposition(store.get().px, store.get().py));

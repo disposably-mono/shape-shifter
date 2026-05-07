@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
-
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    SHAPE SHIFTER — Design System
    Tokens injected by main.ts into :root at runtime (colors.ts → CSS_VARS).
    Only layout/sizing tokens live here.
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
   --C: 68px;            /* grid cell size */
@@ -18,9 +18,9 @@
   --transition-slow: .35s ease;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    RESET & BASE
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 *, *::before, *::after {
   margin: 0;
@@ -40,9 +40,9 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    TOP HUD — floating centered bar
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #ht {
   position: fixed;
@@ -149,9 +149,9 @@ body {
 /* Auth chip — appended by hud.ts */
 .auth-username { font-size: 13px !important; }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    WAVE PROGRESS PANEL — drops from top center below the HUD
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #next-wave-panel {
   position: fixed;
@@ -206,9 +206,9 @@ body {
   white-space: nowrap;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    VIEWPORT
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #vp {
   flex: 1;
@@ -237,9 +237,9 @@ body {
 
 #world { position: absolute; z-index: 2; }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    GRID CELLS
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .cell {
   position: absolute;
@@ -259,9 +259,9 @@ body {
   background: color-mix(in srgb, var(--cell-b) 68%, var(--emerald) 32%);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    PLAYER
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #player {
   position: absolute;
@@ -320,9 +320,9 @@ body {
   100% { transform: scale(1);   opacity: 1;  }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    JUMP PROJECTION (ghost)
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #projection {
   position: absolute;
@@ -347,9 +347,9 @@ body {
 #proj-body.square   { border-radius: 3px; }
 #proj-body.triangle { clip-path: polygon(50% 4%, 96% 92%, 4% 92%); border-radius: 0; }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    ENEMIES
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .en {
   position: absolute;
@@ -414,10 +414,10 @@ body {
   opacity: .22;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    DISPLACEMENT RIPPLE
    Shape matches the eliminated enemy — circle / square / triangle
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .disp-ring {
   position: absolute;
@@ -460,9 +460,9 @@ body {
   100% { transform: scale(2.5); opacity: 0;   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    BOTTOM INPUT PANEL — floating centered bar, matches top HUD style
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #hb {
   position: fixed;
@@ -581,9 +581,9 @@ body {
   text-shadow: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    SHIFT MESSAGE — centered pop animation
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #shift-msg {
   position: fixed;
@@ -612,9 +612,9 @@ body {
   100% { opacity: 0; transform: translate(-50%,-50%) scale(1.3);  }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    WAVE BANNER — same shiftAnim, centered, white
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #wave-banner {
   position: fixed;
@@ -647,9 +647,9 @@ body {
   font-family: 'Share Tech Mono', monospace;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    BREAKING HEART
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #break-heart {
   position: fixed;
@@ -688,9 +688,9 @@ body {
   100%   { transform: translateX(18px) rotate(18deg); opacity: 0; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    SCREEN SHAKE
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #vp.shake { animation: screenShake .35s ease-out; }
 
@@ -703,18 +703,18 @@ body {
   90%     { transform: translate(-2px, -1px); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    COMBO RESET FLASH
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 @keyframes rflash {
   0%   { opacity: 1; }
   100% { opacity: 0; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    OVERLAYS (start / win / lose)
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .ov {
   position: fixed;
@@ -728,6 +728,168 @@ body {
   backdrop-filter: blur(12px);
   gap: 14px;
 }
+
+/* ───────── NEW: Start screen two‑column layout ───────── */
+#start-ov {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+}
+
+.start-left {
+  flex: 0 0 52%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 40px 60px 64px;
+  gap: 28px;
+}
+
+.start-right {
+  flex: 0 0 48%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-left: 1px solid rgba(168, 197, 208, 0.08);
+  background: rgba(5, 37, 53, 0.30);
+}
+
+/* Make the canvas fill the column */
+#start-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ───────── Branding ───────── */
+.start-brand h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  color: var(--white);
+  text-shadow: 0 0 60px rgba(6, 214, 160, 0.5);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.start-tagline {
+  font-size: 13px;
+  letter-spacing: 4px;
+  opacity: 0.4;
+  text-transform: uppercase;
+  margin-top: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 400;
+  color: var(--emerald);
+}
+
+/* ───────── Start nav buttons ───────── */
+.start-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.start-nav-btn {
+  width: 100%;
+  padding: 14px 28px;
+  border: 1px solid var(--hud-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--off);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.start-nav-btn:hover:not(:disabled) {
+  border-color: var(--ocean-blue);
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.03);
+  transform: translateX(4px);
+}
+
+/* Primary CTA (START RUN) */
+.start-nav-primary {
+  background: var(--emerald);
+  border-color: var(--emerald);
+  color: var(--dark-teal);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 4px;
+  box-shadow: 0 0 32px rgba(6, 214, 160, 0.35);
+}
+
+.start-nav-primary:hover {
+  background: #0ae8b0;
+  border-color: #0ae8b0;
+  color: #04222e;
+  box-shadow: 0 0 48px rgba(6, 214, 160, 0.55);
+  transform: translateX(4px) scale(1.02);
+}
+
+/* Disabled state (LEADERBOARD, OPTIONS) */
+.start-nav-disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+/* ───────── Auth row ───────── */
+.start-auth-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.start-auth-btn {
+  padding: 8px 18px;
+  background: transparent;
+  border: 1px solid rgba(168, 197, 208, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--off);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.55;
+}
+
+.start-auth-btn:hover {
+  opacity: 1;
+  border-color: var(--off);
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ───────── Hint text ───────── */
+.start-hint {
+  font-size: 9px;
+  letter-spacing: 2px;
+  opacity: 0.28;
+  font-family: 'Share Tech Mono', monospace;
+  text-transform: uppercase;
+  line-height: 1.8;
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   OVERLAY GENERIC STYLES (win / lose)
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .ov h1 {
   font-family: 'Orbitron', sans-serif;
@@ -831,17 +993,9 @@ body {
   line-height: 1.7;
 }
 
-/* Start screen auth row */
-.start-auth-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 4px;
-  align-items: center;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    METRONOME — left side pulse indicator
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #metronome {
   position: fixed;
@@ -900,9 +1054,9 @@ body {
   box-shadow: 0 0 10px rgba(255,209,102,.6);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    VIRTUAL D-PAD — touch only
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #dpad {
   display: none;
@@ -957,9 +1111,9 @@ body {
   pointer-events: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    AUTH MODAL
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #auth-modal {
   position: fixed;
@@ -1126,9 +1280,9 @@ body {
 }
 .auth-note a { color: var(--emerald); text-decoration: none; }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    USERNAME MODAL
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #username-modal {
   position: fixed;
@@ -1190,9 +1344,9 @@ body {
   line-height: 1.5;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    LOBBY
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 
 #lobby-overlay {
   position: fixed;
@@ -1370,9 +1524,60 @@ body {
 }
 .lobby-btn-secondary:hover { border-color: var(--bubblegum-pink); color: var(--bubblegum-pink); }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    RESPONSIVE — mobile
-   ═══════════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 860px) {
+  /* Start screen stacks vertically on tablet */
+  #start-ov {
+    flex-direction: column-reverse;   /* canvas on top, branding below */
+  }
+
+  .start-left {
+    flex: 0 0 auto;
+    padding: 28px 24px;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+  }
+
+  .start-right {
+    flex: 0 0 38%;
+    border-left: none;
+    border-bottom: 1px solid rgba(168, 197, 208, 0.08);
+    min-height: 200px;
+  }
+
+  .start-brand h1 {
+    font-size: 38px;
+    letter-spacing: 5px;
+  }
+
+  .start-nav {
+    max-width: 280px;
+  }
+
+  .start-nav-btn {
+    padding: 12px 22px;
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+
+  .start-hint {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
+
+  #ht {
+    min-width: unset;
+    width: calc(100vw - 16px);
+    top: 6px;
+  }
+
+  .hv { font-size: 16px; }
+  .hl { display: none; }
+}
 
 @media (max-width: 480px) {
   :root { --C: 52px; }
@@ -1398,6 +1603,40 @@ body {
 
   /* Metronome */
   #metronome { left: 8px; }
+
+  /* Start screen further compact */
+  .start-left {
+    padding: 20px 16px;
+    gap: 16px;
+  }
+  .start-brand h1 {
+    font-size: 30px;
+    letter-spacing: 4px;
+  }
+  .start-tagline {
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+  .start-nav {
+    max-width: 240px;
+    gap: 7px;
+  }
+  .start-nav-btn {
+    padding: 10px 16px;
+    font-size: 9px;
+    letter-spacing: 2px;
+  }
+  .start-right {
+    flex: 0 0 26%;
+    min-height: 150px;
+  }
+  .start-auth-row {
+    gap: 6px;
+  }
+  .start-auth-btn {
+    padding: 6px 12px;
+    font-size: 9px;
+  }
 }
 
 /* Touch devices — show d-pad, reposition input panel */

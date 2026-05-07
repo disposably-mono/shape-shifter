@@ -1,28 +1,26 @@
 // src/ui/hud.ts
 import type { GameState } from '../types/index';
 
-let scEl:            HTMLElement;
-let comboEl:         HTMLElement;
-let cbarEl:          HTMLElement;
-let ruleEl:          HTMLElement;
-let livesEl:         HTMLElement;
-let waveBadgeEl:     HTMLElement;
-let nextWaveLabelEl: HTMLElement;
-let nextWaveBarEl:   HTMLElement;
-let nextWaveReqEl:   HTMLElement;
-let shiftChargeEl:   HTMLElement;
+let scEl:           HTMLElement;
+let comboEl:        HTMLElement;
+let cbarEl:         HTMLElement;
+let ruleEl:         HTMLElement;
+let livesEl:        HTMLElement;
+let waveBadgeEl:    HTMLElement;
+let wpLabelEl:      HTMLElement;
+let wpValueEl:      HTMLElement;
+let shiftChargeEl:  HTMLElement;
 
 export function initHUD(): void {
-  scEl             = document.getElementById('sc')!;
-  comboEl          = document.getElementById('combo-v')!;
-  cbarEl           = document.getElementById('cbar')!;
-  ruleEl           = document.getElementById('rule-t')!;
-  livesEl          = document.getElementById('lives-num')!;
-  waveBadgeEl      = document.getElementById('wave-badge')!;
-  nextWaveLabelEl  = document.getElementById('next-wave-label')!;
-  nextWaveBarEl    = document.getElementById('next-wave-bar')!;
-  nextWaveReqEl    = document.getElementById('next-wave-req')!;
-  shiftChargeEl    = document.getElementById('shift-charge')!;
+  scEl           = document.getElementById('sc')!;
+  comboEl        = document.getElementById('combo-v')!;
+  cbarEl         = document.getElementById('cbar')!;
+  ruleEl         = document.getElementById('rule-t')!;
+  livesEl        = document.getElementById('lives-num')!;
+  waveBadgeEl    = document.getElementById('wave-badge')!;
+  wpLabelEl      = document.getElementById('wp-label')!;
+  wpValueEl      = document.getElementById('wp-value')!;
+  shiftChargeEl  = document.getElementById('shift-charge')!;
 }
 
 export function updateHUD(
@@ -37,32 +35,26 @@ export function updateHUD(
   waveBadgeEl.textContent = 'WAVE ' + state.wave;
   ruleEl.innerHTML        = state.activeRule.label;
 
+  // Combo bar — tracks progress when trigger is combo-based
   cbarEl.style.width = state.waveTrigger.type === 'combo'
     ? Math.min(100, (state.combo / state.waveTrigger.threshold) * 100) + '%'
     : '0%';
 
-  // Next wave panel
+  // Wave progress overlay — top-left of viewport
   const t = state.waveTrigger;
-  if (nextWaveLabelEl && nextWaveBarEl && nextWaveReqEl) {
-    if (t.type === 'score') {
-      const pct = Math.min(100, (state.score / t.threshold) * 100);
-      nextWaveLabelEl.textContent = 'SCORE';
-      nextWaveBarEl.style.width   = pct + '%';
-      nextWaveReqEl.textContent   = `${state.score.toLocaleString()} / ${t.threshold.toLocaleString()}`;
-    } else {
-      const pct = Math.min(100, (state.combo / t.threshold) * 100);
-      nextWaveLabelEl.textContent = 'COMBO';
-      nextWaveBarEl.style.width   = pct + '%';
-      nextWaveReqEl.textContent   = `×${state.combo} / ×${t.threshold}`;
-    }
+  if (t.type === 'score') {
+    wpLabelEl.textContent = 'SCORE';
+    wpValueEl.textContent = `${state.score.toLocaleString()} / ${t.threshold.toLocaleString()}`;
+  } else {
+    wpLabelEl.textContent = 'COMBO';
+    wpValueEl.textContent = `×${state.combo} / ×${t.threshold}`;
   }
 
   // Shift charge badge
   if (shiftChargeEl && shiftCharges !== undefined && shiftProgress !== undefined) {
     const progressStr = shiftProgress > 0 ? ` (${shiftProgress}/5)` : '';
     shiftChargeEl.textContent = `[Q] SHIFT ×${shiftCharges}${progressStr}`;
-    const isReady = shiftCharges > 0 && !shiftCooldown;
-    shiftChargeEl.classList.toggle('ready', isReady);
+    shiftChargeEl.classList.toggle('ready', shiftCharges > 0 && !shiftCooldown);
     shiftChargeEl.classList.toggle('cooldown', !!shiftCooldown);
   }
 }
@@ -81,7 +73,7 @@ export function showComboReset(): void {
   setTimeout(() => f.remove(), 450);
 }
 
-// ── Auth chip (top-right HUD) ──────────────────────
+// ── Auth chip ─────────────────────────────────────────────────────────────────
 export function updateAuthChip(username: string | null): void {
   let chip = document.getElementById('auth-chip');
   if (!chip) {

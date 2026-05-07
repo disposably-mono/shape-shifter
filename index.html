@@ -27,16 +27,7 @@
       <span class="hl">Lives</span>
       <div id="lives"><span class="heart">❤</span><span id="lives-num">3</span></div>
     </div>
-    <!-- Auth chip injected here by hud.ts -->
-  </div>
-
-  <!-- FLOATING NEXT WAVE PANEL — top center -->
-  <div id="next-wave-panel">
-    <span class="it" id="next-wave-label">SCORE</span>
-    <div id="next-wave-bar-bg">
-      <div id="next-wave-bar"></div>
-    </div>
-    <span id="next-wave-req">— / —</span>
+    <!-- Auth chip injected by hud.ts -->
   </div>
 
   <!-- VIEWPORT -->
@@ -54,6 +45,12 @@
         <circle cx="28" cy="28" r="13" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
       </svg>
       <div id="p-body"></div>
+    </div>
+
+    <!-- WAVE PROGRESS — top-left in-viewport overlay -->
+    <div id="wave-progress">
+      <span id="wp-label">SCORE</span>
+      <span id="wp-value">— / —</span>
     </div>
   </div>
 
@@ -81,18 +78,47 @@
     </div>
   </div>
 
-  <!-- START SCREEN -->
+  <!-- ═══════════════════════════════════════════
+       START SCREEN — two column layout
+       ═══════════════════════════════════════════ -->
   <div class="ov" id="start-ov">
-    <h1>SHAPE SHIFTER</h1>
-    <p>Enemies march toward you every second.<br>Jump to matching ones before they reach you.<br>Build the combo. Don't let them through.</p>
-    <p style="margin-top:4px;font-size:9px;opacity:.3;">WASD / ARROWS · ENTER to jump · ESC to clear · Q to SHIFT</p>
-    <button class="obtn" id="start-play-btn">PLAY AS GUEST</button>
-    <div class="start-auth-row">
-      <button class="obtn-link" id="btn-signin">Sign In</button>
-      <span style="opacity:.3;font-size:10px;">·</span>
-      <button class="obtn-link" id="btn-register">Create Account</button>
-      <button class="obtn-link" id="btn-signout" style="display:none">Sign Out</button>
+
+    <!-- Left: branding + nav -->
+    <div class="start-left">
+      <div class="start-brand">
+        <h1>SHAPE<br>SHIFTER</h1>
+        <p class="start-tagline">Match. Jump. Survive.</p>
+      </div>
+
+      <nav class="start-nav">
+        <button class="start-nav-btn start-nav-primary" id="start-play-btn">
+          START RUN
+        </button>
+        <button class="start-nav-btn" id="start-configure-btn">
+          CONFIGURE RUN
+        </button>
+        <button class="start-nav-btn start-nav-disabled" disabled id="start-leaderboard-btn">
+          LEADERBOARD
+        </button>
+        <button class="start-nav-btn start-nav-disabled" disabled>
+          OPTIONS
+        </button>
+      </nav>
+
+      <div class="start-auth-row">
+        <button class="start-auth-btn" id="btn-signin">Sign In</button>
+        <button class="start-auth-btn" id="btn-register">Create Account</button>
+        <button class="start-auth-btn" id="btn-signout" style="display:none">Sign Out</button>
+      </div>
+
+      <p class="start-hint">WASD / ARROWS · ENTER · ESC / R to clear · Q to SHIFT</p>
     </div>
+
+    <!-- Right: animated shape canvas -->
+    <div class="start-right">
+      <canvas id="start-canvas"></canvas>
+    </div>
+
   </div>
 
   <!-- WIN SCREEN -->
@@ -114,7 +140,14 @@
     <h1>GAME OVER</h1>
     <div class="stat" id="lose-s"></div>
     <p>All lives lost.</p>
-    <button class="obtn" id="lose-retry-btn">RETRY</button>
+
+    <div class="lose-actions">
+      <button class="obtn" id="lose-retry-btn">RETRY</button>
+      <button class="obtn obtn-secondary" id="lose-configure-btn">CONFIGURE RUN</button>
+    </div>
+
+    <p class="lose-hint">ENTER to retry · BACKSPACE to configure</p>
+
     <div class="guest-cta" id="guest-cta">
       <p>Save your score. Unlock the lobby. Appear on the leaderboard.</p>
       <button class="obtn-link" id="guest-cta-btn">Create Account</button>

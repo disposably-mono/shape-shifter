@@ -1,3 +1,4 @@
+// src/engine/input.ts
 import type { Direction } from '../types/index';
 import { MAX_INPUT } from './constants';
 
@@ -18,8 +19,15 @@ type InputCallbacks = {
   onClear:   () => void;
 };
 
+// Overlay callbacks — fired when game is inactive (overlay visible)
+type OverlayCallbacks = {
+  onRetry:     () => void;
+  onConfigure: () => void;
+};
+
 let seq: Direction[] = [];
 let callbacks: InputCallbacks | null = null;
+let overlayCallbacks: OverlayCallbacks | null = null;
 let active = false;
 
 export function initInput(cbs: InputCallbacks): void {
@@ -27,12 +35,36 @@ export function initInput(cbs: InputCallbacks): void {
   document.addEventListener('keydown', handleKey);
 }
 
+export function setOverlayCallbacks(cbs: OverlayCallbacks): void {
+  overlayCallbacks = cbs;
+}
+
 export function setInputActive(isActive: boolean): void {
   active = isActive;
 }
 
 function handleKey(e: KeyboardEvent): void {
-  if (!active) return;
+  // Overlay shortcuts — fire when game is not active and lose screen is visible
+  if (!active) {
+    const loseOv = document.getElementById('lose-ov');
+    const isLoseVisible = loseOv && loseOv.style.display !== 'none';
+
+    if (isLoseVisible) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        overlayCallbacks?.onRetry();
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        overlayCallbacks?.onConfigure();
+        return;
+      }
+    }
+    return;
+  }
+
+  // Active game input
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
     confirm();
