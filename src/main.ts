@@ -90,9 +90,12 @@ function hudUpdate(): void {
 
 // ─── March timer ──────────────────────────────────────────────────────────────
 let marchTimer: ReturnType<typeof setInterval> | null = null;
+let freezeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 function stopMarchTimer(): void {
   if (marchTimer !== null) { clearInterval(marchTimer); marchTimer = null; }
+  if (freezeTimeoutId) { clearTimeout(freezeTimeoutId); freezeTimeoutId = null; }
+  document.getElementById('vp')?.classList.remove('time-freeze');
 }
 
 function startMarchTimer(): void {
@@ -106,6 +109,21 @@ function startMarchTimer(): void {
 function refreshMarchTimer(): void {
   if (!store.get().gameActive) return;
   startMarchTimer();
+}
+
+// ❄️ Kill freeze: stop marching for a short time, then restart
+const KILL_FREEZE_MS = 400;
+
+function freezeMarchTimer(): void {
+  stopMarchTimer();
+  if (freezeTimeoutId) clearTimeout(freezeTimeoutId);
+  const vp = document.getElementById('vp');
+  vp?.classList.add('time-freeze');
+  freezeTimeoutId = setTimeout(() => {
+    freezeTimeoutId = null;
+    vp?.classList.remove('time-freeze');
+    startMarchTimer();
+  }, KILL_FREEZE_MS);
 }
 
 function marchTick(): void {
@@ -188,6 +206,7 @@ initInput({
         refreshAllValid(ns.activeRule, ns2.player, ns2.px, ns2.py);
         flashCombo();
         sfxComboMilestone(ns2.combo);
+        freezeMarchTimer();          // ❄️ replaced refreshMarchTimer()
       } else {
         const gain = calcScore(ns.combo, ns.config.difficulty);
         store.update(st => ({
@@ -198,9 +217,9 @@ initInput({
         sfxElim();
         sfxComboMilestone(store.get().combo);
         flashCombo();
+        freezeMarchTimer();          // ❄️ replaced refreshMarchTimer()
       }
 
-      refreshMarchTimer();
       const fs = store.get();
       ensureValidTarget(fs.px, fs.py, fs.activeRule, fs.player);
       refreshAllValid(fs.activeRule, fs.player, fs.px, fs.py);
@@ -370,7 +389,7 @@ function doPerfectShift(): void {
   reposition(ns.px, ns.py);
   flashCombo();
   sfxComboMilestone(ns.combo);
-  refreshMarchTimer();
+  freezeMarchTimer();                // ❄️ replaced refreshMarchTimer()
   ensureValidTarget(ns.px, ns.py, ns.activeRule, ns.player);
   hudUpdate();
   checkWaveTrigger();

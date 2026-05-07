@@ -34,9 +34,6 @@ export function displaceNearby(
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) continue;
     if (dx === 0 && dy === 0) continue;
 
-    // Valid targets are immune to knockback
-    if (rule.check(e.def, player)) continue;
-
     // Push direction: away from the eliminated cell
     // For dx===0 or dy===0, pick the axis that has movement; diagonal otherwise
     const pushX = dx === 0 ? 0 : Math.sign(dx);
