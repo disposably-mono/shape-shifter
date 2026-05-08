@@ -36,7 +36,7 @@ import {
   sfxComboMilestone, sfxWaveUp,
   sfxMetronomeDown, sfxMetronomeUp,
 } from './engine/audio';
-import { SPAWN_R, MAX_INPUT } from './engine/constants';
+import { SPAWN_R, MAX_INPUT, MAX_SHIFT_CHARGES, PERFECT_KILLS_PER_CHARGE } from './engine/constants';
 import { initHitstop, triggerHitstop, cancelHitstop } from './engine/hitstop';
 import type { LobbyConfig, GameState, ScoreSubmission } from './types/index';
 
@@ -71,9 +71,7 @@ initDpad();
 let metroBeat = 0;
 
 // ─── Perfect shift charge tracker ────────────────────────────────────────────
-const PERFECT_KILLS_PER_CHARGE = 5;
-const MAX_SHIFT_CHARGES        = 3;
-const SHIFT_COOLDOWN_MS        = 1000;
+const SHIFT_COOLDOWN_MS = 1000;
 
 let perfectShiftCharges = 1;
 let perfectKillCounter  = 0;

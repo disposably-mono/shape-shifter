@@ -1,11 +1,8 @@
 // src/engine/combat.ts
 import type { PlayerState, Rule, EnemyDef } from '../types/index';
-import { enemies, removeEnemy, markKnockedBack } from './enemies';
+import { enemies, removeEnemy, markKnockedBack, knockbackTimers, pickDef } from './enemies';
 import { SHIFT_RANGE } from './constants';
 import { worldX, worldY } from './grid';
-import { SHAPES, COLORS } from './constants';
-
-const knockbackTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
  * Knockback: push all enemies in the 3×3 ring around the kill cell.
@@ -67,6 +64,8 @@ export function displaceNearby(
   const taken = new Set<string>();
 
   for (const [key, e] of sortedMoves) {
+    if (!enemies[e.id]) continue; // skip if chain-killed earlier this pass
+
     const [nx, ny] = key.split(',').map(Number);
 
     const blocker = Object.values(enemies).find(
@@ -173,12 +172,6 @@ export function executeShift(px: number, py: number): PlayerState {
       removeEnemy(e.id);
     }
   }
-  return randomPlayer();
-}
-
-function randomPlayer(): PlayerState {
-  return {
-    shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
-    color: COLORS[Math.floor(Math.random() * COLORS.length)],
-  };
+  const def = pickDef();
+  return { shape: def.shape, color: def.color };
 }

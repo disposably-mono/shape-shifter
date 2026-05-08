@@ -61,10 +61,12 @@ export function drawTrail(
   line.setAttribute('stroke-linecap', 'round');
   trailSvg.appendChild(line);
 
-  let op = 0.9;
-  const fade = setInterval(() => {
-    op -= 0.07;
-    if (op <= 0) { line.remove(); clearInterval(fade); return; }
-    line.setAttribute('stroke', `rgba(255,255,255,${op.toFixed(2)})`);
-  }, 30);
+  const start = performance.now();
+  const DURATION = 385;
+  (function fade(now: number) {
+    const t = Math.min((now - start) / DURATION, 1);
+    if (t >= 1) { line.remove(); return; }
+    line.setAttribute('stroke', `rgba(255,255,255,${((1 - t) * 0.9).toFixed(2)})`);
+    requestAnimationFrame(fade);
+  })(start);
 }

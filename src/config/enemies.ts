@@ -35,7 +35,7 @@ export const ENEMY_DEFS: Record<string, EnemyDef> = {
   pdi: { id: 'pdi', shape: 'diamond', color: 'purple', weight: 0.5, unlockWave: 4 },
   odi: { id: 'odi', shape: 'diamond', color: 'orange', weight: 0.5, unlockWave: 4 },
   cdi: { id: 'cdi', shape: 'diamond', color: 'cyan',   weight: 0.5, unlockWave: 4 },
-  ldi: { id: 'ldi', shape: 'diamond', color: 'lime',   weight: 0.5, unlockWave: 4 },
+  ldi: { id: 'ldi', shape: 'diamond', color: 'lime',   weight: 0.5, unlockWave: 5 },
   // Pentagon shape — weight 0.5, unlocks wave 5
   rpe: { id: 'rpe', shape: 'pentagon', color: 'red',    weight: 0.5, unlockWave: 5 },
   bpe: { id: 'bpe', shape: 'pentagon', color: 'blue',   weight: 0.5, unlockWave: 5 },

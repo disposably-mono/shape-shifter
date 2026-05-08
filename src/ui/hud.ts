@@ -1,5 +1,6 @@
 // src/ui/hud.ts
 import type { GameState } from '../types/index';
+import { MAX_SHIFT_CHARGES } from '../engine/constants';
 
 let scEl:           HTMLElement;
 let comboEl:        HTMLElement;
@@ -52,7 +53,7 @@ export function updateHUD(
 
   // Shift charge badge
   if (shiftChargeEl && shiftCharges !== undefined && shiftProgress !== undefined) {
-    const progressStr = shiftProgress > 0 ? ` (${shiftProgress}/5)` : '';
+    const progressStr = shiftCharges < MAX_SHIFT_CHARGES ? ` (${shiftProgress}/5)` : '';
     shiftChargeEl.textContent = `[Q] SHIFT ×${shiftCharges}${progressStr}`;
     shiftChargeEl.classList.toggle('ready', shiftCharges > 0 && !shiftCooldown);
     shiftChargeEl.classList.toggle('cooldown', !!shiftCooldown);

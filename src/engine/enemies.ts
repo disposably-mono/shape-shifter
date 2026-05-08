@@ -11,6 +11,7 @@ let worldEl: HTMLElement;
 let enemyCounter = 0;
 let activeWave = 1;
 export const enemies: Record<string, Enemy> = {};
+export const knockbackTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Enemies knocked back this tick skip marching
 const knockedBackThisTick = new Set<string>();
@@ -119,6 +120,8 @@ export function removeEnemy(id: string): void {
   e.el.remove();
   delete enemies[id];
   knockedBackThisTick.delete(id);
+  const t = knockbackTimers.get(id);
+  if (t !== undefined) { clearTimeout(t); knockbackTimers.delete(id); }
 }
 
 export function clearAllEnemies(): void {
