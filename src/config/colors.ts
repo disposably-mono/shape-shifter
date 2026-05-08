@@ -22,6 +22,10 @@ export const COLOR_CSS: Record<string, string> = {
   blue:   '#118ab2',
   green:  '#06d6a0',
   yellow: '#ffd166',
+  purple: '#a855f7',
+  orange: '#f97316',
+  cyan:   '#22d3ee',
+  lime:   '#bef264',
 };
 
 /** CSS variable declarations — inject into :root */
@@ -61,6 +65,10 @@ export interface Palette {
   colorBlue:     string;
   colorGreen:    string;
   colorYellow:   string;
+  colorPurple:   string;
+  colorOrange:   string;
+  colorCyan:     string;
+  colorLime:     string;
 }
 
 export const PALETTES: Palette[] = [
@@ -83,6 +91,10 @@ export const PALETTES: Palette[] = [
     colorBlue:     '#118ab2',
     colorGreen:    '#06d6a0',
     colorYellow:   '#ffd166',
+    colorPurple:   '#a855f7',
+    colorOrange:   '#f97316',
+    colorCyan:     '#22d3ee',
+    colorLime:     '#bef264',
   },
   {
     id: 'dusk', name: 'DUSK',
@@ -103,6 +115,10 @@ export const PALETTES: Palette[] = [
     colorBlue:     '#818cf8',
     colorGreen:    '#34d399',
     colorYellow:   '#fde68a',
+    colorPurple:   '#c084fc',
+    colorOrange:   '#fb923c',
+    colorCyan:     '#67e8f9',
+    colorLime:     '#d9f99d',
   },
   {
     id: 'amber', name: 'AMBER',
@@ -123,6 +139,10 @@ export const PALETTES: Palette[] = [
     colorBlue:     '#38bdf8',
     colorGreen:    '#84cc16',
     colorYellow:   '#fde68a',
+    colorPurple:   '#a78bfa',
+    colorOrange:   '#fb923c',
+    colorCyan:     '#22d3ee',
+    colorLime:     '#bef264',
   },
   {
     id: 'crimson', name: 'CRIMSON',
@@ -143,6 +163,10 @@ export const PALETTES: Palette[] = [
     colorBlue:     '#60a5fa',
     colorGreen:    '#4ade80',
     colorYellow:   '#fbbf24',
+    colorPurple:   '#e879f9',
+    colorOrange:   '#fb923c',
+    colorCyan:     '#67e8f9',
+    colorLime:     '#86efac',
   },
   {
     id: 'void', name: 'VOID',
@@ -163,6 +187,10 @@ export const PALETTES: Palette[] = [
     colorBlue:     '#38bdf8',
     colorGreen:    '#4ade80',
     colorYellow:   '#fde047',
+    colorPurple:   '#c084fc',
+    colorOrange:   '#fb923c',
+    colorCyan:     '#67e8f9',
+    colorLime:     '#bef264',
   },
 ];
 
@@ -188,6 +216,10 @@ export function applyPalette(p: Palette): void {
   COLOR_CSS.blue   = p.colorBlue;
   COLOR_CSS.green  = p.colorGreen;
   COLOR_CSS.yellow = p.colorYellow;
+  COLOR_CSS.purple = p.colorPurple;
+  COLOR_CSS.orange = p.colorOrange;
+  COLOR_CSS.cyan   = p.colorCyan;
+  COLOR_CSS.lime   = p.colorLime;
 
   localStorage.setItem(PALETTE_KEY, p.id);
   document.dispatchEvent(new CustomEvent('palettechange'));

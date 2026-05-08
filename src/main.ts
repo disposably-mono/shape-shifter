@@ -171,7 +171,7 @@ initInput({
       const exact     = isExactMatch(target.def, s.player);
       const elimShape = target.def.shape;
 
-      displaceNearby(tx, ty, tx, ty, s.activeRule, s.player, worldEl, elimShape);
+      const chainKills = displaceNearby(tx, ty, tx, ty, s.activeRule, s.player, worldEl, elimShape);
       removeEnemy(target.id);
       store.update(() => ({ px: tx, py: ty }));
       const ns = store.get();
@@ -213,6 +213,23 @@ initInput({
         sfxComboMilestone(store.get().combo);
         flashCombo();
         triggerHitstop(store.get().config.difficulty);          // ❄️ normal kill
+      }
+
+      // Handle chain kills from knockback collisions
+      for (const _def of chainKills) {
+        const cs = store.get();
+        const gain = calcScore(cs.combo, cs.config.difficulty);
+        store.update(st => ({
+          score:    st.score + gain,
+          combo:    st.combo + 1,
+          maxCombo: Math.max(st.maxCombo, st.combo + 1),
+        }));
+        sfxElim();
+      }
+      if (chainKills.length > 0) {
+        flashCombo();
+        sfxComboMilestone(store.get().combo);
+        hudUpdate();
       }
 
       const fs = store.get();

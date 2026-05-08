@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────
 
 export type Shape = 'circle' | 'square' | 'triangle';
-export type Color = 'red' | 'blue' | 'green' | 'yellow';
+export type Color = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'cyan' | 'lime';
 export type DifficultyTier = 'easy' | 'normal' | 'hard' | 'brutal';
 export type WaveTriggerType = 'score' | 'combo' | 'random';
 export type Direction = { dx: number; dy: number; sym: string };

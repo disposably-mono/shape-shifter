@@ -118,7 +118,7 @@ export function clearAllEnemies(): void {
 
 export function randomiseAllEnemies(): void {
   const shapes: EnemyDef['shape'][] = ['circle', 'square', 'triangle'];
-  const colors: EnemyDef['color'][] = ['red', 'blue', 'green', 'yellow'];
+  const colors: EnemyDef['color'][] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'lime'];
 
   for (const e of Object.values(enemies)) {
     const newShape = shapes[Math.floor(Math.random() * shapes.length)];

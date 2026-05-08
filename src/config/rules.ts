@@ -1,4 +1,18 @@
-import type { Rule } from '../types/index';
+import type { Rule, Color } from '../types/index';
+
+// Compound colors and the base colors they absorb
+const COLOR_COMPONENTS: Partial<Record<Color, Color[]>> = {
+  purple: ['red', 'blue'],
+  orange: ['red', 'yellow'],
+  cyan:   ['blue', 'green'],
+  lime:   ['green', 'yellow'],
+};
+
+// One-directional: compound player color kills its components; base colors don't kill compounds
+function colorMatches(playerColor: Color, enemyColor: Color): boolean {
+  if (playerColor === enemyColor) return true;
+  return (COLOR_COMPONENTS[playerColor] ?? []).includes(enemyColor);
+}
 
 export const RULES: Record<string, Rule> = {
   SHAPE_OR_COLOR: {
@@ -6,7 +20,7 @@ export const RULES: Record<string, Rule> = {
     label: 'Same <b>SHAPE</b> or <b>COLOR</b>',
     description: 'Eliminate enemies that share your shape or your colour.',
     difficulty: 1,
-    check: (e, p) => e.shape === p.shape || e.color === p.color,
+    check: (e, p) => e.shape === p.shape || colorMatches(p.color as Color, e.color as Color),
   },
   SHAPE_ONLY: {
     id: 'SHAPE_ONLY',
@@ -20,7 +34,7 @@ export const RULES: Record<string, Rule> = {
     label: 'Same <b>COLOR</b> only',
     description: 'Only enemies that match your exact colour can be eliminated.',
     difficulty: 2,
-    check: (e, p) => e.color === p.color,
+    check: (e, p) => colorMatches(p.color as Color, e.color as Color),
   },
   // SHAPE_AND_COLOR removed from playable pool.
   // It is only used internally to detect bonus SHIFT kills.

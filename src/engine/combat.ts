@@ -1,5 +1,5 @@
 // src/engine/combat.ts
-import type { PlayerState, Rule } from '../types/index';
+import type { PlayerState, Rule, EnemyDef } from '../types/index';
 import { enemies, removeEnemy, markKnockedBack } from './enemies';
 import { SHIFT_RANGE } from './constants';
 import { worldX, worldY } from './grid';
@@ -22,8 +22,10 @@ export function displaceNearby(
   player: PlayerState,
   worldEl: HTMLElement,
   shape: string,
-): void {
+): EnemyDef[] {
   spawnRipple(elimGX, elimGY, playerGX, playerGY, shape, worldEl);
+
+  const chainKills: EnemyDef[] = [];
 
   // 1. Collect all (enemy → desired cell) pairs
   const moves: Array<{ enemy: import('../types/index').Enemy; nx: number; ny: number; dist: number }> = [];
@@ -109,7 +111,25 @@ export function displaceNearby(
       if (applied) continue;
     }
 
-    if (blocker) continue;
+    if (blocker) {
+      // chain kill: stationary enemy is eliminated by the knocked-back enemy
+      chainKills.push(blocker.def);
+      removeEnemy(blocker.id);
+      taken.add(key);
+      e.gx = nx; e.gy = ny;
+      e.el.style.transition = 'left .3s cubic-bezier(.23,1.4,.32,1), top .3s cubic-bezier(.23,1.4,.32,1)';
+      e.el.style.left = worldX(nx, playerGX) + 'px';
+      e.el.style.top  = worldY(ny, playerGY) + 'px';
+      markKnockedBack(e.id);
+      clearTimeout(knockbackTimers.get(e.id));
+      knockbackTimers.set(e.id, setTimeout(() => {
+        knockbackTimers.delete(e.id);
+        if (enemies[e.id]) {
+          e.el.style.transition = 'left .22s cubic-bezier(.23,1.2,.32,1), top .22s cubic-bezier(.23,1.2,.32,1)';
+        }
+      }, 350));
+      continue;
+    }
 
     taken.add(key);
     e.gx = nx;
@@ -127,6 +147,8 @@ export function displaceNearby(
       }
     }, 350));
   }
+
+  return chainKills;
 }
 
 function spawnRipple(
