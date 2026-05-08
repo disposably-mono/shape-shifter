@@ -16,7 +16,7 @@ import {
   confirm as confirmInput, clear as clearInput, resetSeq,
 } from './engine/input';
 import { initProjection, updateProjection, drawTrail } from './engine/projection';
-import { displaceNearby, executeShift, executeBonusShift } from './engine/combat';
+import { displaceNearby, executeShift } from './engine/combat';
 import { isExactMatch } from './config/rules';
 import { calcScore, calcPerfectShiftScore } from './engine/scoring';
 import { initHUD, updateHUD, flashCombo, showComboReset, updateAuthChip } from './ui/hud';
@@ -34,6 +34,7 @@ import {
   sfxMetronomeDown, sfxMetronomeUp,
 } from './engine/audio';
 import { SPAWN_R, MAX_INPUT } from './engine/constants';
+import { initHitstop, triggerHitstop, cancelHitstop } from './engine/hitstop';
 import type { LobbyConfig } from './types/index';
 
 // ─── Inject CSS tokens ────────────────────────────────────────────────────────
@@ -90,11 +91,10 @@ function hudUpdate(): void {
 
 // ─── March timer ──────────────────────────────────────────────────────────────
 let marchTimer: ReturnType<typeof setInterval> | null = null;
-let freezeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 function stopMarchTimer(): void {
   if (marchTimer !== null) { clearInterval(marchTimer); marchTimer = null; }
-  if (freezeTimeoutId) { clearTimeout(freezeTimeoutId); freezeTimeoutId = null; }
+  cancelHitstop();                              // ← cancel any pending freeze
   document.getElementById('vp')?.classList.remove('time-freeze');
 }
 
@@ -106,24 +106,15 @@ function startMarchTimer(): void {
   marchTimer = setInterval(marchTick, diff.marchTick);
 }
 
+// After both functions are declared, wire hitstop:
+initHitstop(
+  () => { if (marchTimer !== null) { clearInterval(marchTimer); marchTimer = null; } },
+  () => startMarchTimer(),
+);
+
 function refreshMarchTimer(): void {
   if (!store.get().gameActive) return;
   startMarchTimer();
-}
-
-// ❄️ Kill freeze: stop marching for a short time, then restart
-const KILL_FREEZE_MS = 400;
-
-function freezeMarchTimer(): void {
-  stopMarchTimer();
-  if (freezeTimeoutId) clearTimeout(freezeTimeoutId);
-  const vp = document.getElementById('vp');
-  vp?.classList.add('time-freeze');
-  freezeTimeoutId = setTimeout(() => {
-    freezeTimeoutId = null;
-    vp?.classList.remove('time-freeze');
-    startMarchTimer();
-  }, KILL_FREEZE_MS);
 }
 
 function marchTick(): void {
@@ -187,7 +178,7 @@ initInput({
 
       if (exact) {
         const gain      = calcPerfectShiftScore(ns.combo, ns.config.difficulty);
-        const newPlayer = executeBonusShift(ns.px, ns.py);
+        const newPlayer = executeShift(ns.px, ns.py);
         store.update(st => ({
           combo:    st.combo + 2,
           maxCombo: Math.max(st.maxCombo, st.combo + 2),
@@ -203,10 +194,10 @@ initInput({
         renderPlayer(store.get().player);
         randomiseAllEnemies();
         const ns2 = store.get();
-        refreshAllValid(ns.activeRule, ns2.player, ns2.px, ns2.py);
+        refreshAllValid(ns2.activeRule, ns2.player, ns2.px, ns2.py);
         flashCombo();
         sfxComboMilestone(ns2.combo);
-        freezeMarchTimer();          // ❄️ replaced refreshMarchTimer()
+        triggerHitstop(store.get().config.difficulty, true);          // ❄️ bonus/exact-match kill
       } else {
         const gain = calcScore(ns.combo, ns.config.difficulty);
         store.update(st => ({
@@ -217,7 +208,7 @@ initInput({
         sfxElim();
         sfxComboMilestone(store.get().combo);
         flashCombo();
-        freezeMarchTimer();          // ❄️ replaced refreshMarchTimer()
+        triggerHitstop(store.get().config.difficulty);          // ❄️ normal kill
       }
 
       const fs = store.get();
@@ -368,7 +359,7 @@ function doPerfectShift(): void {
   }, SHIFT_COOLDOWN_MS);
 
   const gain      = calcPerfectShiftScore(s.combo, s.config.difficulty);
-  const newPlayer = executeBonusShift(s.px, s.py);
+  const newPlayer = executeShift(s.px, s.py);
   store.update(st => ({
     combo:    st.combo + 2,
     maxCombo: Math.max(st.maxCombo, st.combo + 2),
@@ -389,7 +380,7 @@ function doPerfectShift(): void {
   reposition(ns.px, ns.py);
   flashCombo();
   sfxComboMilestone(ns.combo);
-  freezeMarchTimer();                // ❄️ replaced refreshMarchTimer()
+  triggerHitstop(store.get().config.difficulty, true);          // ❄️ perfect shift
   ensureValidTarget(ns.px, ns.py, ns.activeRule, ns.player);
   hudUpdate();
   checkWaveTrigger();
@@ -486,6 +477,7 @@ function spawnInitialEnemies(): void {
 }
 
 function startGame(config?: LobbyConfig): void {
+  cancelAnimationFrame(canvasAnimId);
   stopMarchTimer();
   clearAllEnemies();
   clearCellPool();
@@ -734,23 +726,36 @@ async function bootstrapAuth(): Promise<void> {
 bootstrapAuth();
 initStartCanvas();
 
-// ─── Intro animation: start screen begins with centered canvas, click to reveal full UI ───
-const startOverlayEl = document.getElementById('start-ov')!;
-const startCanvasEl = document.getElementById('start-canvas')!;
+// ─── Intro animation ──────────────────────────────────────────────────────────
+const startOverlayEl  = document.getElementById('start-ov')!;
+const startCanvasEl   = document.getElementById('start-canvas')!;
+const startClickHint  = document.getElementById('start-click-hint')!;
 
-// Begin in intro state (canvas fullscreen, left panel hidden)
 startOverlayEl.classList.add('intro');
 
-// Click on canvas to reveal left panel
-startCanvasEl.addEventListener('click', () => {
+function revealStartScreen(): void {
+  if (!startOverlayEl.classList.contains('intro')) return;
   startOverlayEl.classList.remove('intro');
+  // Brief canvas scale-down to signal "entering" the game
+  startCanvasEl.style.transition = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+  startCanvasEl.style.transform  = 'scale(0.88)';
+  setTimeout(() => {
+    startCanvasEl.style.transform = '';
+    // Remove inline transition after so resize doesn't inherit it
+    setTimeout(() => { startCanvasEl.style.transition = ''; }, 650);
+  }, 600);
+}
+
+startCanvasEl.addEventListener('click', revealStartScreen);
+startOverlayEl.addEventListener('click', (e) => {
+  // Also clicking the hint area (which is inside start-right) should reveal
+  if (startOverlayEl.classList.contains('intro')) revealStartScreen();
 });
 
-// Also allow keyboard reveal
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (startOverlayEl.classList.contains('intro') && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault();
-    startOverlayEl.classList.remove('intro');
+    revealStartScreen();
   }
 });
 
