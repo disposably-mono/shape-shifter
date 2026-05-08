@@ -167,7 +167,7 @@ initInput({
       const exact     = isExactMatch(target.def, s.player);
       const elimShape = target.def.shape;
 
-      displaceNearby(tx, ty, s.px, s.py, s.activeRule, s.player, worldEl, elimShape);
+      displaceNearby(tx, ty, tx, ty, s.activeRule, s.player, worldEl, elimShape);
       removeEnemy(target.id);
       store.update(() => ({ px: tx, py: ty }));
       const ns = store.get();
@@ -483,7 +483,7 @@ function startGame(config?: LobbyConfig): void {
   clearCellPool();
   (trailSvg as any).innerHTML = '';
 
-  const activeConfig: LobbyConfig = config ?? { ...DEFAULT_LOBBY_CONFIG };
+  const activeConfig: LobbyConfig = config ?? store.get().config;
   const rule    = pickWaveRule(activeConfig.startingWave, activeConfig);
   const trigger = generateWaveTrigger(
     activeConfig.startingWave,

@@ -40,7 +40,7 @@ export function displaceNearby(
     moves.push({ enemy: e, nx, ny, dist });
   }
 
-  // 2. Resolve conflicts: if two enemies want the same cell, 
+  // 2. Resolve conflicts: if two enemies want the same cell,
   //    the one closer to the blast center wins (smaller dist = more directly hit)
   const claimed = new Map<string, import('../types/index').Enemy>();
   for (const m of moves) {
@@ -51,26 +51,24 @@ export function displaceNearby(
     }
   }
 
-  // Build a map of which cells will be vacated by moving enemies
-  const movingFrom = new Set<string>();
-  for (const m of moves) {
-    const winner = claimed.get(`${m.nx},${m.ny}`);
-    if (winner === m.enemy) {
-      // This enemy is actually moving — its current cell will be free
-      movingFrom.add(`${m.enemy.gx},${m.enemy.gy}`);
-    }
-  }
+  // 3. Apply moves — process farthest-first so outer enemies vacate cells
+  //    before closer enemies try to occupy them. Use live positions throughout
+  //    so we never land on an enemy that failed to move.
+  //    `taken` tracks every cell committed to this pass (including fallbacks
+  //    not in `claimed`) to prevent two enemies landing on the same cell.
+  const sortedMoves = [...claimed.entries()].sort(([, ea], [, eb]) => {
+    const da = moves.find(m => m.enemy === ea)!.dist;
+    const db = moves.find(m => m.enemy === eb)!.dist;
+    return db - da; // farthest first
+  });
 
-  // 3. Apply only the winning moves — skip if destination occupied by an
-  //    enemy that ISN'T vacating its cell (i.e. not part of the knockback)
-  for (const [key, e] of claimed) {
+  const taken = new Set<string>();
+
+  for (const [key, e] of sortedMoves) {
     const [nx, ny] = key.split(',').map(Number);
 
-    // A cell is blocked only if an enemy occupies it AND that enemy
-    // is NOT moving away from that cell
     const blocker = Object.values(enemies).find(
       other => other.id !== e.id && other.gx === nx && other.gy === ny
-        && !movingFrom.has(`${other.gx},${other.gy}`)
     );
 
     // Diagonal fallback: if diagonal move is blocked, try cardinal components
@@ -79,19 +77,16 @@ export function displaceNearby(
         { fx: nx, fy: e.gy },  // horizontal only
         { fx: e.gx, fy: ny },  // vertical only
       ];
-      
+
       let applied = false;
       for (const opt of options) {
         const fallbackKey = `${opt.fx},${opt.fy}`;
         const fallbackBlocker = Object.values(enemies).find(
           other => other.id !== e.id && other.gx === opt.fx && other.gy === opt.fy
-            && !movingFrom.has(`${other.gx},${other.gy}`)
         );
-        
-        if (!claimed.has(fallbackKey) && !fallbackBlocker) {
-          // Mark old cell as being vacated, new cell as claimed
-          movingFrom.add(`${e.gx},${e.gy}`);
-          
+
+        if (!taken.has(fallbackKey) && !fallbackBlocker) {
+          taken.add(fallbackKey);
           e.gx = opt.fx;
           e.gy = opt.fy;
           e.el.style.transition = 'left .3s cubic-bezier(.23,1.4,.32,1), top .3s cubic-bezier(.23,1.4,.32,1)';
@@ -110,16 +105,13 @@ export function displaceNearby(
           break;
         }
       }
-      
+
       if (applied) continue;
     }
 
     if (blocker) continue;
 
-    // Mark old cell as being vacated
-    movingFrom.add(`${e.gx},${e.gy}`);
-
-    // Apply the knockback
+    taken.add(key);
     e.gx = nx;
     e.gy = ny;
     e.el.style.transition = 'left .3s cubic-bezier(.23,1.4,.32,1), top .3s cubic-bezier(.23,1.4,.32,1)';
