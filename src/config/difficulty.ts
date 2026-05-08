@@ -2,19 +2,18 @@
 import type { DifficultyTier, DifficultyConfig, DifficultyCalc } from '../types/index';
 
 // ─── BPM-based march ticks ───────────────────────────────────────────────────
-// Each tier locks to a real BPM so players can sync background music.
 // marchTick (ms) = 60000 / BPM
 //
-//  Easy   →  80 BPM →  750ms  lo-fi / slow hip-hop
-//  Normal → 110 BPM →  545ms  mid-tempo pop
-//  Hard   → 128 BPM →  469ms  house / dance
-//  Brutal → 160 BPM →  375ms  drum & bass
+//  Easy   →  60 BPM → 1000ms  lo-fi / slow hip-hop
+//  Normal →  80 BPM →  750ms  mid-tempo
+//  Hard   → 100 BPM →  600ms  uptempo
+//  Brutal → 120 BPM →  500ms  drum & bass
 
 const BPM_MARCH_TICK: Record<DifficultyTier, number> = {
-  easy:   1000,   // 60 BPM
-  normal: 750,    // 80 BPM
-  hard:   600,    // 100 BPM
-  brutal: 500,    // 120 BPM
+  easy:   1000,  //  60 BPM
+  normal:  750,  //  80 BPM
+  hard:    600,  // 100 BPM
+  brutal:  500,  // 120 BPM
 };
 
 export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyConfig> = {
@@ -25,12 +24,14 @@ export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyConfig> = {
 };
 
 // Wave trigger threshold multiplier per tier.
-// Lower tier = easier requirements, higher tier = harder grind.
+// Score per kill already scales with difficulty (0.5–2.5×), so score thresholds
+// must be calibrated against that rate. Combo thresholds don't benefit from score
+// multipliers, so brutal combo is intentionally lower than score might suggest.
 export const THRESHOLD_MULTIPLIER: Record<DifficultyTier, number> = {
-  easy:   0.6,
+  easy:   0.65,
   normal: 1.0,
-  hard:   1.4,
-  brutal: 2.0,
+  hard:   1.35,
+  brutal: 1.75,
 };
 
 const RULE_SPAWN_BONUS: Record<string, number> = {

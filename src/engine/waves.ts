@@ -4,16 +4,31 @@ import { RULES, pickRule } from '../config/rules';
 import { THRESHOLD_MULTIPLIER } from '../config/difficulty';
 
 // ─── Base deltas (at Normal difficulty) ──────────────────────────────────────
-// Score: 3500 * 1.45^(wave-1) — exponential, lenient early, brutal in endless
-// Combo: linear +5 per wave starting at 20 — predictable, inherently harder
+//
+// Score: two-regime exponential.
+//   Waves 1–5  : 3000 × 1.42^(wave-1)  → 3 000 / 4 260 / 6 049 / 8 589 / 12 196
+//   Waves 6+   : anchor at wave-5 value, grow at 1.28×/wave instead of 1.42×
+//                so endless thresholds stay reachable deep into a run.
+//
+// Combo: linear up to wave 10, then near-flat to stay feasible in endless.
+//   Waves 1–10 : 15 + wave × 4  → 19 … 55
+//   Waves 11+  : 55 + floor((wave-10)/3)  → grows by 1 every 3 waves
 
 export function getScoreDelta(wave: number, tier: DifficultyTier = 'normal'): number {
-  const base = Math.round(3500 * Math.pow(1.45, wave - 1));
+  let base: number;
+  if (wave <= 5) {
+    base = Math.round(3000 * Math.pow(1.42, wave - 1));
+  } else {
+    const wave5 = Math.round(3000 * Math.pow(1.42, 4)); // ≈ 12 196
+    base = Math.round(wave5 * Math.pow(1.28, wave - 5));
+  }
   return Math.round(base * THRESHOLD_MULTIPLIER[tier]);
 }
 
 export function getComboDelta(wave: number, tier: DifficultyTier = 'normal'): number {
-  const base = 15 + (wave * 5); // wave 1=20, wave 2=25, wave 3=30 ...
+  const base = wave <= 10
+    ? 15 + wave * 4
+    : 55 + Math.floor((wave - 10) / 3);
   return Math.round(base * THRESHOLD_MULTIPLIER[tier]);
 }
 
