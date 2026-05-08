@@ -69,12 +69,28 @@ export interface GameState {
 }
 
 export interface ScoreSubmission {
-  user_id: string;
-  score: number;
-  raw_score: number;
-  wave: number;
-  max_combo: number;
-  difficulty: DifficultyTier;
+  user_id:        string;
+  username:       string;
+  score:          number;
+  raw_score:      number;
+  wave:           number;
+  max_combo:      number;
+  difficulty:     DifficultyTier;
+  wave_trigger:   WaveTriggerType;
+  starting_wave:  number;
+  starting_lives: number;
+}
+
+export interface LeaderboardFilters {
+  difficulty:     DifficultyTier | null;
+  wave_trigger:   WaveTriggerType | null;
+  starting_wave:  number | null;
+  starting_lives: number | null;
+}
+
+export interface ScoreRow extends ScoreSubmission {
+  id:           string;
+  submitted_at: string;
 }
 
 export interface Enemy {

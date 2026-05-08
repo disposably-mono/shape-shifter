@@ -1,7 +1,7 @@
 // src/main.ts
 import './style.css';
 import { CSS_VARS } from './config/colors';
-import { getDifficulty } from './config/difficulty';
+import { getDifficulty, getScoreMultiplier } from './config/difficulty';
 import { pickWaveRule, generateWaveTrigger, isWaveTriggerMet, isMutationWave } from './engine/waves';
 import { store, resetStore, DEFAULT_LOBBY_CONFIG } from './engine/state';
 import { initGrid, renderCells, getJumpableCells, clearCellPool } from './engine/grid';
@@ -28,6 +28,8 @@ import { initAuthModal, openAuthModal, handleUserResolved } from './ui/auth-moda
 import { initUsernameModal } from './ui/username-modal';
 import { getCurrentUser, onAuthStateChange, signOut } from './supabase/auth';
 import { getCachedProfile, clearProfileCache } from './supabase/profiles';
+import { submitScore } from './supabase/scores';
+import { initLeaderboard, openLeaderboard } from './ui/leaderboard';
 import {
   sfxElim, sfxComboReset, sfxShift,
   sfxComboMilestone, sfxWaveUp,
@@ -35,7 +37,7 @@ import {
 } from './engine/audio';
 import { SPAWN_R, MAX_INPUT } from './engine/constants';
 import { initHitstop, triggerHitstop, cancelHitstop } from './engine/hitstop';
-import type { LobbyConfig } from './types/index';
+import type { LobbyConfig, GameState, ScoreSubmission } from './types/index';
 
 // ─── Inject CSS tokens ────────────────────────────────────────────────────────
 const styleEl = document.createElement('style');
@@ -301,6 +303,22 @@ function doComboReset(): void {
   hudUpdate();
 }
 
+// ─── Score submission ─────────────────────────────────────────────────────────
+function buildSubmission(s: GameState, profile: { id: string; username: string }): ScoreSubmission {
+  return {
+    user_id:        profile.id,
+    username:       profile.username,
+    score:          s.score,
+    raw_score:      Math.round(s.score / getScoreMultiplier(s.config.difficulty)),
+    wave:           s.wave,
+    max_combo:      s.maxCombo,
+    difficulty:     s.config.difficulty,
+    wave_trigger:   s.config.waveTrigger,
+    starting_wave:  s.config.startingWave,
+    starting_lives: s.config.startingLives,
+  };
+}
+
 // ─── SHIFT (life lost) ────────────────────────────────────────────────────────
 function doShift(): void {
   const s = store.get();
@@ -335,6 +353,9 @@ function doShift(): void {
 
     const guestCta = document.getElementById('guest-cta')!;
     guestCta.style.display = getCachedProfile() ? 'none' : 'flex';
+
+    const profile = getCachedProfile();
+    if (profile) void submitScore(buildSubmission(ns, profile));
 
     showOverlay('lose-ov');
     return;
@@ -405,6 +426,10 @@ function doWin(): void {
   hideMetronome();
   (document.getElementById('win-s') as HTMLElement).textContent =
     `SCORE: ${s.score.toLocaleString()}  |  COMBO: ×${s.maxCombo}  |  LIVES: ${s.lives}`;
+
+  const winProfile = getCachedProfile();
+  if (winProfile) void submitScore(buildSubmission(s, winProfile));
+
   showOverlay('win-ov');
 }
 
@@ -679,6 +704,7 @@ function updateStartScreenForAuth(username: string | null): void {
 
 async function bootstrapAuth(): Promise<void> {
   initUsernameModal();
+  initLeaderboard();
 
   initAuthModal((username) => {
     updateAuthChip(username);
@@ -694,6 +720,7 @@ async function bootstrapAuth(): Promise<void> {
 
   // Configure run button on start screen opens lobby
   document.getElementById('start-configure-btn')!.addEventListener('click', () => openLobby());
+  document.getElementById('start-leaderboard-btn')!.addEventListener('click', () => openLeaderboard());
 
   document.getElementById('ht')!.addEventListener('click', (e) => {
     const chip = (e.target as HTMLElement).closest('#auth-chip');
