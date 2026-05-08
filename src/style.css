@@ -358,6 +358,8 @@ body {
 #proj-body.circle   { border-radius: 50%; }
 #proj-body.square   { border-radius: 3px; }
 #proj-body.triangle { clip-path: polygon(50% 4%, 96% 92%, 4% 92%); border-radius: 0; }
+#proj-body.diamond  { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); border-radius: 0; }
+#proj-body.pentagon { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); border-radius: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    ENEMIES
@@ -391,6 +393,8 @@ body {
 .eshape.circle   { border-radius: 50%; }
 .eshape.square   { border-radius: 3px; }
 .eshape.triangle { clip-path: polygon(50% 4%, 96% 92%, 4% 92%); border-radius: 0; }
+.eshape.diamond  { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); border-radius: 0; }
+.eshape.pentagon { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); border-radius: 0; }
 
 .eshape.valid { opacity: 1; }
 
@@ -454,6 +458,17 @@ body {
   border: 2px solid rgba(255,255,255,.80);
   background: rgba(255,255,255,.04);
 }
+
+/* Diamond & Pentagon — clip-path on box model */
+.disp-ring.diamond,
+.disp-ring.pentagon {
+  width: var(--C);
+  height: var(--C);
+  border: 2px solid rgba(255,255,255,.80);
+  background: rgba(255,255,255,.04);
+}
+.disp-ring.diamond  { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+.disp-ring.pentagon { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); }
 
 /* Triangle — CSS border trick; clip-path hides stroke so we use fill */
 .disp-ring.triangle {

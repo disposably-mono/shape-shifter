@@ -9,7 +9,7 @@ import { initPlayer, renderPlayer, updateComboRings, animateJump } from './engin
 import {
   initEnemies, enemies, spawnEnemy, removeEnemy, clearAllEnemies,
   marchAll, refreshAllValid, repositionEnemies, ensureValidTarget,
-  randomiseAllEnemies, refreshAllEnemyColors,
+  randomiseAllEnemies, refreshAllEnemyColors, setActiveWave,
 } from './engine/enemies';
 import {
   initInput, setInputActive, setOverlayCallbacks,
@@ -124,6 +124,7 @@ function refreshMarchTimer(): void {
 function marchTick(): void {
   const s = store.get();
   if (!s.gameActive) return;
+  setActiveWave(s.wave);
 
   metroBeat = (metroBeat + 1) % 2;
   tickMetronome();
@@ -539,6 +540,7 @@ function startGame(config?: LobbyConfig): void {
   );
 
   resetStore(activeConfig, rule, trigger);
+  setActiveWave(activeConfig.startingWave);
 
   perfectShiftCharges = 1;
   perfectKillCounter  = 0;
@@ -582,7 +584,7 @@ function nextWave(): void {
 // Single shape morphing circle→square→triangle, color cycling, beats on metro
 
 const PALETTE = ['#ef476f','#06d6a0','#118ab2','#ffd166','#ffffff'];
-let canvasShape      = 0;   // 0=circle, 1=square, 2=triangle
+let canvasShape      = 0;   // 0=circle, 1=square, 2=triangle, 3=diamond, 4=pentagon
 let canvasColor      = 0;
 let canvasMorphT     = 0;   // 0→1 morph progress
 let canvasBeat       = false;
@@ -609,7 +611,7 @@ function initStartCanvas(): void {
     canvasMorphT = (canvasMorphT + dt / MORPH_DURATION) % 1;
     if (canvasMorphT < dt / MORPH_DURATION) {
       // Completed a morph cycle — advance shape and color
-      canvasShape = (canvasShape + 1) % 3;
+      canvasShape = (canvasShape + 1) % 5;
       canvasColor = (canvasColor + 1) % PALETTE.length;
     }
 
@@ -683,12 +685,27 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: number, r: number): voi
     // Square (rounded)
     const s = r * 0.85;
     ctx.roundRect(-s, -s, s * 2, s * 2, s * 0.18);
-  } else {
+  } else if (shape === 2) {
     // Triangle
     const h = r * 1.1;
     ctx.moveTo(0, -h);
     ctx.lineTo(h * 0.866, h * 0.5);
     ctx.lineTo(-h * 0.866, h * 0.5);
+    ctx.closePath();
+  } else if (shape === 3) {
+    // Diamond
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r, 0);
+    ctx.lineTo(0, r);
+    ctx.lineTo(-r, 0);
+    ctx.closePath();
+  } else {
+    // Pentagon
+    for (let i = 0; i < 5; i++) {
+      const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+      const x = Math.cos(a) * r, y = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
     ctx.closePath();
   }
 }

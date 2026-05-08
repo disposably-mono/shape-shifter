@@ -2,7 +2,7 @@
 // Shared type definitions for Shape Shifter
 // ─────────────────────────────────────────────
 
-export type Shape = 'circle' | 'square' | 'triangle';
+export type Shape = 'circle' | 'square' | 'triangle' | 'diamond' | 'pentagon';
 export type Color = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'cyan' | 'lime';
 export type DifficultyTier = 'easy' | 'normal' | 'hard' | 'brutal';
 export type WaveTriggerType = 'score' | 'combo' | 'random';
@@ -15,6 +15,7 @@ export interface EnemyDef {
   weight: number;
   speed?: number;
   special?: string;
+  unlockWave?: number;
 }
 
 export interface Rule {

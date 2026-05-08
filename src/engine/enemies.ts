@@ -9,6 +9,7 @@ const MIN_SPAWN_DIST = 2; // Chebyshev — player always needs ≥2 inputs to re
 
 let worldEl: HTMLElement;
 let enemyCounter = 0;
+let activeWave = 1;
 export const enemies: Record<string, Enemy> = {};
 
 // Enemies knocked back this tick skip marching
@@ -17,6 +18,14 @@ const knockedBackThisTick = new Set<string>();
 export function initEnemies(world: HTMLElement): void {
   worldEl = world;
   enemyCounter = 0;
+}
+
+export function setActiveWave(wave: number): void {
+  activeWave = wave;
+}
+
+function getActivePool(): EnemyDef[] {
+  return ENEMY_POOL.filter(d => (d.unlockWave ?? 1) <= activeWave);
 }
 
 export function markKnockedBack(id: string): void {
@@ -43,7 +52,7 @@ function makeEnemyEl(def: EnemyDef): { wrap: HTMLElement; shapeEl: HTMLElement }
 }
 
 export function pickDef(): EnemyDef {
-  const pool = ENEMY_POOL;
+  const pool = getActivePool();
   const tot = pool.reduce((s, d) => s + d.weight, 0);
   let r = Math.random() * tot;
   for (const d of pool) { r -= d.weight; if (r <= 0) return d; }
@@ -51,7 +60,8 @@ export function pickDef(): EnemyDef {
 }
 
 export function pickValidDef(rule: Rule, player: PlayerState): EnemyDef {
-  const valids = ENEMY_POOL.filter(d => rule.check(d, player));
+  const pool   = getActivePool();
+  const valids = pool.filter(d => rule.check(d, player));
   if (!valids.length) return pickDef();
   return valids[Math.floor(Math.random() * valids.length)];
 }
@@ -117,8 +127,9 @@ export function clearAllEnemies(): void {
 }
 
 export function randomiseAllEnemies(): void {
-  const shapes: EnemyDef['shape'][] = ['circle', 'square', 'triangle'];
-  const colors: EnemyDef['color'][] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'lime'];
+  const pool   = getActivePool();
+  const shapes = [...new Set(pool.map(d => d.shape))] as EnemyDef['shape'][];
+  const colors = [...new Set(pool.map(d => d.color))] as EnemyDef['color'][];
 
   for (const e of Object.values(enemies)) {
     const newShape = shapes[Math.floor(Math.random() * shapes.length)];
