@@ -23,7 +23,7 @@ export function displaceNearby(
   worldEl: HTMLElement,
   shape: string,
 ): void {
-  spawnRipple(elimGX, elimGY, shape, worldEl);
+  spawnRipple(elimGX, elimGY, playerGX, playerGY, shape, worldEl);
 
   // 1. Collect all (enemy → desired cell) pairs
   const moves: Array<{ enemy: import('../types/index').Enemy; nx: number; ny: number; dist: number }> = [];
@@ -132,13 +132,15 @@ export function displaceNearby(
 function spawnRipple(
   gx: number,
   gy: number,
+  pgx: number,
+  pgy: number,
   shape: string,
   worldEl: HTMLElement,
 ): void {
   const ring = document.createElement('div');
   ring.className = `disp-ring ${shape}`;
-  ring.style.left = worldX(gx, 0) + 'px';
-  ring.style.top  = worldY(gy, 0) + 'px';
+  ring.style.left = worldX(gx, pgx) + 'px';
+  ring.style.top  = worldY(gy, pgy) + 'px';
   worldEl.appendChild(ring);
   setTimeout(() => ring.remove(), 600);
 }

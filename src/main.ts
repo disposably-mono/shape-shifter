@@ -1,6 +1,6 @@
 // src/main.ts
 import './style.css';
-import { CSS_VARS } from './config/colors';
+import { CSS_VARS, loadSavedPalette } from './config/colors';
 import { getDifficulty, getScoreMultiplier } from './config/difficulty';
 import { pickWaveRule, generateWaveTrigger, isWaveTriggerMet, isMutationWave } from './engine/waves';
 import { store, resetStore, DEFAULT_LOBBY_CONFIG } from './engine/state';
@@ -9,7 +9,7 @@ import { initPlayer, renderPlayer, updateComboRings, animateJump } from './engin
 import {
   initEnemies, enemies, spawnEnemy, removeEnemy, clearAllEnemies,
   marchAll, refreshAllValid, repositionEnemies, ensureValidTarget,
-  randomiseAllEnemies,
+  randomiseAllEnemies, refreshAllEnemyColors,
 } from './engine/enemies';
 import {
   initInput, setInputActive, setOverlayCallbacks,
@@ -23,13 +23,14 @@ import { initHUD, updateHUD, flashCombo, showComboReset, updateAuthChip } from '
 import { showOverlay, hideAllOverlays } from './ui/overlays';
 import { initMetronome, tickMetronome, showMetronome, hideMetronome } from './ui/metronome';
 import { initDpad } from './ui/dpad';
-import { initLobby, openLobby } from './ui/lobby';
+import { initLobby, openLobby, closeLobby } from './ui/lobby';
 import { initAuthModal, openAuthModal, handleUserResolved } from './ui/auth-modal';
 import { initUsernameModal } from './ui/username-modal';
 import { getCurrentUser, onAuthStateChange, signOut } from './supabase/auth';
 import { getCachedProfile, clearProfileCache } from './supabase/profiles';
 import { submitScore } from './supabase/scores';
-import { initLeaderboard, openLeaderboard } from './ui/leaderboard';
+import { initLeaderboard, openLeaderboard, closeLeaderboard } from './ui/leaderboard';
+import { initOptions, openOptions, closeOptions } from './ui/options';
 import {
   sfxElim, sfxComboReset, sfxShift,
   sfxComboMilestone, sfxWaveUp,
@@ -39,10 +40,11 @@ import { SPAWN_R, MAX_INPUT } from './engine/constants';
 import { initHitstop, triggerHitstop, cancelHitstop } from './engine/hitstop';
 import type { LobbyConfig, GameState, ScoreSubmission } from './types/index';
 
-// ─── Inject CSS tokens ────────────────────────────────────────────────────────
+// ─── Inject CSS tokens then apply any saved palette override ─────────────────
 const styleEl = document.createElement('style');
 styleEl.textContent = `:root { ${CSS_VARS} }`;
 document.head.appendChild(styleEl);
+loadSavedPalette();
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const vpEl       = document.getElementById('vp')!;
@@ -250,11 +252,13 @@ document.getElementById('eb')!.addEventListener('click', confirmInput);
 document.getElementById('cb')!.addEventListener('click', clearInput);
 document.getElementById('win-retry-btn')!.addEventListener('click', () => startGame());
 document.getElementById('win-endless-btn')!.addEventListener('click', continueEndless);
+document.getElementById('win-lb-btn')!.addEventListener('click', () => openLeaderboard());
 document.getElementById('lose-retry-btn')!.addEventListener('click', () => startGame());
 document.getElementById('lose-configure-btn')!.addEventListener('click', () => {
   hideAllOverlays();
   openLobby();
 });
+document.getElementById('lose-lb-btn')!.addEventListener('click', () => openLeaderboard());
 document.getElementById('guest-cta-btn')!.addEventListener('click', () => openAuthModal('signup'));
 
 // ─── Hotkey: Q = manual perfect shift ────────────────────────────────────────
@@ -705,6 +709,7 @@ function updateStartScreenForAuth(username: string | null): void {
 async function bootstrapAuth(): Promise<void> {
   initUsernameModal();
   initLeaderboard();
+  initOptions();
 
   initAuthModal((username) => {
     updateAuthChip(username);
@@ -721,6 +726,7 @@ async function bootstrapAuth(): Promise<void> {
   // Configure run button on start screen opens lobby
   document.getElementById('start-configure-btn')!.addEventListener('click', () => openLobby());
   document.getElementById('start-leaderboard-btn')!.addEventListener('click', () => openLeaderboard());
+  document.getElementById('start-options-btn')!.addEventListener('click', () => openOptions());
 
   document.getElementById('ht')!.addEventListener('click', (e) => {
     const chip = (e.target as HTMLElement).closest('#auth-chip');
@@ -752,6 +758,31 @@ async function bootstrapAuth(): Promise<void> {
 
 bootstrapAuth();
 initStartCanvas();
+
+// ─── Palette live refresh ─────────────────────────────────────────────────────
+document.addEventListener('palettechange', () => {
+  const s = store.get();
+  refreshAllEnemyColors();
+  renderPlayer(s.player);
+});
+
+// ─── Global Escape navigation ─────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const modals: Array<[string, () => void]> = [
+    ['options-overlay', closeOptions],
+    ['lb-overlay',      closeLeaderboard],
+    ['lobby-overlay',   closeLobby],
+  ];
+  for (const [id, close] of modals) {
+    const el = document.getElementById(id);
+    if (el && el.style.display !== 'none') {
+      close();
+      e.preventDefault();
+      return;
+    }
+  }
+});
 
 // ─── Intro animation ──────────────────────────────────────────────────────────
 const startOverlayEl  = document.getElementById('start-ov')!;

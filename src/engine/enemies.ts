@@ -58,6 +58,14 @@ export function pickValidDef(rule: Rule, player: PlayerState): EnemyDef {
 
 // ─── Spawn / Remove ──────────────────────────────────────────────────────────
 
+export function refreshAllEnemyColors(): void {
+  for (const e of Object.values(enemies)) {
+    const c = COLOR_CSS[e.def.color] ?? '#fff';
+    e.shapeEl.style.backgroundColor = c;
+    e.shapeEl.style.boxShadow = `0 0 6px ${c}44`;
+  }
+}
+
 export function occupiedAt(gx: number, gy: number, excludeId?: string): boolean {
   for (const e of Object.values(enemies)) {
     if (excludeId && e.id === excludeId) continue;
