@@ -1,6 +1,6 @@
 // src/engine/waves.ts
 import type { LobbyConfig, Rule, WaveTrigger, WaveTriggerType, DifficultyTier } from '../types/index';
-import { RULES, pickRule } from '../config/rules';
+import { RULES, MUTATION_PATH, pickRule } from '../config/rules';
 import { THRESHOLD_MULTIPLIER } from '../config/difficulty';
 
 // ─── Base deltas (at Normal difficulty) ──────────────────────────────────────
@@ -90,8 +90,8 @@ export function pickWaveRule(wave: number, config: LobbyConfig): Rule {
 
 export function getMutationRule(wave: number): Rule {
   const mutationIndex = Math.floor((wave - 11) / 5);
-  const path = ['SHAPE_OR_COLOR', 'SHAPE_ONLY', 'COLOR_ONLY', 'SHAPE_AND_COLOR'];
-  return RULES[path[Math.min(mutationIndex, path.length - 1)]];
+  const ruleId = MUTATION_PATH[Math.min(mutationIndex, MUTATION_PATH.length - 1)];
+  return RULES[ruleId];
 }
 
 export function isMutationWave(wave: number): boolean {

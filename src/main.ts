@@ -88,7 +88,9 @@ function onPerfectKill(): void {
 
 // ─── HUD helper ───────────────────────────────────────────────────────────────
 function hudUpdate(): void {
-  updateHUD(store.get(), perfectShiftCharges, perfectKillCounter, shiftOnCooldown);
+  const s = store.get();
+  updateComboRings(s.combo);
+  updateHUD(s, perfectShiftCharges, perfectKillCounter, shiftOnCooldown);
 }
 
 // ─── March timer ──────────────────────────────────────────────────────────────
@@ -157,13 +159,19 @@ initInput({
     for (const d of seq) { dx += d.dx; dy += d.dy; }
 
     if (Math.abs(dx) > MAX_INPUT || Math.abs(dy) > MAX_INPUT) {
-      doComboReset(); resetSeq(); store.set({ inputSeq: [] }); return;
+      doComboReset();
+      clearQueuedInput();
+      return;
     }
 
     const tx     = s.px + dx, ty = s.py + dy;
     const target = Object.values(enemies).find(e => e.gx === tx && e.gy === ty);
 
-    if (!target) { doComboReset(); resetSeq(); store.set({ inputSeq: [] }); return; }
+    if (!target) {
+      doComboReset();
+      clearQueuedInput();
+      return;
+    }
 
     if (s.activeRule.check(target.def, s.player)) {
       const fromGX    = s.px, fromGY = s.py;
@@ -240,17 +248,10 @@ initInput({
       doShift();
     }
 
-    resetSeq();
-    store.set({ inputSeq: [] });
-    renderSlots([]);
-    const cs = store.get();
-    updateProjection([], cs.px, cs.py, cs.player, cs.gameActive);
+    clearQueuedInput();
   },
   onClear() {
-    store.set({ inputSeq: [] });
-    const s = store.get();
-    updateProjection([], s.px, s.py, s.player, s.gameActive);
-    renderSlots([]);
+    clearQueuedInput();
   },
 });
 
@@ -312,6 +313,14 @@ function renderSlots(seq: { sym: string }[]): void {
     sl.textContent = seq[i]?.sym ?? '';
     sl.classList.toggle('on', !!seq[i]);
   }
+}
+
+function clearQueuedInput(): void {
+  resetSeq();
+  store.set({ inputSeq: [] });
+  renderSlots([]);
+  const s = store.get();
+  updateProjection([], s.px, s.py, s.player, s.gameActive);
 }
 
 function doComboReset(): void {
@@ -581,7 +590,8 @@ function nextWave(): void {
 // ─── Start screen canvas animation ───────────────────────────────────────────
 // Single shape morphing circle→square→triangle, color cycling, beats on metro
 
-const PALETTE = ['#ef476f','#06d6a0','#118ab2','#ffd166','#ffffff'];
+let startPalette = ['#ef476f', '#06d6a0', '#118ab2', '#ffd166', '#ffffff'];
+let orbitColors = ['#ef476f', '#ffd166', '#118ab2', '#06d6a0'];
 let canvasShape      = 0;   // 0=circle, 1=square, 2=triangle, 3=diamond, 4=pentagon
 let canvasColor      = 0;
 let canvasMorphT     = 0;   // 0→1 morph progress
@@ -593,6 +603,7 @@ const MORPH_DURATION = 1800; // ms per full morph cycle
 function initStartCanvas(): void {
   const canvas = document.getElementById('start-canvas') as HTMLCanvasElement;
   if (!canvas) return;
+  refreshStartCanvasPalette();
 
   function resize() {
     const parent = canvas.parentElement!;
@@ -610,7 +621,7 @@ function initStartCanvas(): void {
     if (canvasMorphT < dt / MORPH_DURATION) {
       // Completed a morph cycle — advance shape and color
       canvasShape = (canvasShape + 1) % 5;
-      canvasColor = (canvasColor + 1) % PALETTE.length;
+      canvasColor = (canvasColor + 1) % startPalette.length;
     }
 
     const ctx = canvas.getContext('2d')!;
@@ -618,8 +629,12 @@ function initStartCanvas(): void {
 
     const cx  = canvas.width  / 2;
     const cy  = canvas.height / 2;
-    const r   = Math.min(canvas.width, canvas.height) * 0.28;
-    const col = PALETTE[canvasColor];
+    const minSide = Math.min(canvas.width, canvas.height);
+    const r   = minSide * 0.20;
+    const col = startPalette[canvasColor];
+
+    drawStartGrid(ctx, canvas.width, canvas.height, now);
+    drawOrbitingThreats(ctx, cx, cy, minSide, now);
 
     // Beat pulse
     const beatScale = canvasBeat ? 1.12 : 1.0;
@@ -630,17 +645,17 @@ function initStartCanvas(): void {
     ctx.scale(scale, scale);
 
     // Glow
-    ctx.shadowBlur  = 48;
+    ctx.shadowBlur  = 58;
     ctx.shadowColor = col;
     ctx.fillStyle   = col;
-    ctx.globalAlpha = 0.18;
+    ctx.globalAlpha = 0.16;
 
-    drawShape(ctx, canvasShape, r * 1.4);
+    drawShape(ctx, canvasShape, r * 1.65);
     ctx.fill();
 
     // Core shape
-    ctx.globalAlpha = 0.82;
-    ctx.shadowBlur  = 24;
+    ctx.globalAlpha = 0.90;
+    ctx.shadowBlur  = 28;
     drawShape(ctx, canvasShape, r);
     ctx.fill();
 
@@ -653,25 +668,106 @@ function initStartCanvas(): void {
 
     ctx.restore();
 
-    // Dim grid dots in background for texture
-    ctx.globalAlpha = 0.04;
-    ctx.fillStyle   = '#06d6a0';
-    const spacing   = 40;
-    for (let x = spacing / 2; x < canvas.width; x += spacing) {
-      for (let y = spacing / 2; y < canvas.height; y += spacing) {
-        ctx.beginPath();
-        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    ctx.globalAlpha = 1;
-
     if (canvasBeat) canvasBeat = false;
     canvasAnimId = requestAnimationFrame(draw);
   }
 
   canvasLastTime = performance.now();
   canvasAnimId   = requestAnimationFrame(draw);
+}
+
+function refreshStartCanvasPalette(): void {
+  const css = getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+
+  startPalette = [
+    read('--bubblegum-pink', '#ef476f'),
+    read('--emerald', '#06d6a0'),
+    read('--ocean-blue', '#118ab2'),
+    read('--golden-pollen', '#ffd166'),
+    read('--white', '#ffffff'),
+  ];
+  orbitColors = [
+    read('--bubblegum-pink', '#ef476f'),
+    read('--golden-pollen', '#ffd166'),
+    read('--ocean-blue', '#118ab2'),
+    read('--emerald', '#06d6a0'),
+  ];
+}
+
+function drawStartGrid(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  now: number,
+): void {
+  const spacing = 52;
+  const drift = (now / 55) % spacing;
+
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(168,197,208,0.055)';
+  for (let x = -spacing + drift; x < width + spacing; x += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for (let y = -spacing + drift; y < height + spacing; y += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = 'rgba(6,214,160,0.14)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 16]);
+  ctx.lineDashOffset = -now / 38;
+  ctx.beginPath();
+  ctx.moveTo(width * 0.20, height * 0.62);
+  ctx.lineTo(width * 0.42, height * 0.48);
+  ctx.lineTo(width * 0.50, height * 0.50);
+  ctx.lineTo(width * 0.66, height * 0.36);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawOrbitingThreats(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  minSide: number,
+  now: number,
+): void {
+  const orbit = minSide * 0.32;
+  const t = now / 2600;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(168,197,208,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, orbit, 0, Math.PI * 2);
+  ctx.stroke();
+
+  for (let i = 0; i < 4; i++) {
+    const a = t + i * Math.PI / 2;
+    const x = cx + Math.cos(a) * orbit;
+    const y = cy + Math.sin(a) * orbit * 0.78;
+    const color = orbitColors[i];
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(a * 0.6);
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = color;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.72;
+    drawShape(ctx, (i + 1) % 5, Math.max(9, minSide * 0.032));
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 function drawShape(ctx: CanvasRenderingContext2D, shape: number, r: number): void {
@@ -794,6 +890,7 @@ initStartCanvas();
 // ─── Palette live refresh ─────────────────────────────────────────────────────
 document.addEventListener('palettechange', () => {
   const s = store.get();
+  refreshStartCanvasPalette();
   refreshAllEnemyColors();
   renderPlayer(s.player);
 });
@@ -819,7 +916,6 @@ document.addEventListener('keydown', (e) => {
 // ─── Intro animation ──────────────────────────────────────────────────────────
 const startOverlayEl  = document.getElementById('start-ov')!;
 const startCanvasEl   = document.getElementById('start-canvas')!;
-const startClickHint  = document.getElementById('start-click-hint')!;
 
 startOverlayEl.classList.add('intro');
 

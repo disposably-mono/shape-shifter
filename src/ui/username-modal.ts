@@ -90,8 +90,9 @@ async function handleConfirm(): Promise<void> {
     return;
   }
 
+  const complete = onComplete;
   closeUsernameModal();
-  onComplete?.(raw);
+  complete?.(raw);
 }
 
 function validate(value: string): string | null {

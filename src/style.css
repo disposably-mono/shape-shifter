@@ -767,6 +767,9 @@ body {
   align-items: stretch;
   gap: 0;
   padding: 0;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(6, 214, 160, 0.12), transparent 32%),
+    linear-gradient(135deg, rgba(2, 15, 23, 0.98), rgba(7, 29, 43, 0.96) 48%, rgba(4, 15, 23, 0.98));
 }
 
 .start-left {
@@ -775,8 +778,9 @@ body {
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  padding: 60px 40px 60px 64px;
-  gap: 28px;
+  padding: 58px clamp(34px, 5vw, 78px);
+  gap: 24px;
+  min-width: 0;
 }
 
 .start-right {
@@ -787,7 +791,9 @@ body {
   justify-content: center;
   overflow: hidden;
   border-left: 1px solid rgba(168, 197, 208, 0.08);
-  background: rgba(5, 37, 53, 0.30);
+  background:
+    linear-gradient(180deg, rgba(5, 37, 53, 0.62), rgba(4, 18, 29, 0.9)),
+    rgba(5, 37, 53, 0.30);
 }
 
 /* Make the canvas fill the column */
@@ -795,6 +801,26 @@ body {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.start-canvas-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(2, 15, 23, 0.12), transparent 22%),
+    radial-gradient(circle at center, transparent 35%, rgba(1, 9, 14, 0.46) 100%);
+}
+
+.start-canvas-label {
+  position: absolute;
+  top: 28px;
+  right: 30px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(168, 197, 208, 0.58);
+  text-transform: uppercase;
 }
 
 /* ───────── Intro animation: full-screen centred canvas ───────── */
@@ -838,7 +864,7 @@ body {
 /* Click hint — sibling div, NOT ::after on canvas */
 #start-click-hint {
   position: absolute;
-  bottom: 14%;
+  bottom: 13%;
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Orbitron', sans-serif;
@@ -862,43 +888,68 @@ body {
 }
 
 /* ───────── Branding ───────── */
+.start-kicker {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  margin-bottom: 12px;
+  color: var(--emerald);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  opacity: 0.78;
+  text-transform: uppercase;
+}
+
+.start-kicker::before {
+  content: '';
+  width: 26px;
+  height: 1px;
+  margin-right: 10px;
+  background: currentColor;
+  box-shadow: 0 0 14px currentColor;
+}
+
 .start-brand h1 {
   font-family: 'Orbitron', sans-serif;
-  font-size: 64px;
+  font-size: 72px;
   font-weight: 900;
-  letter-spacing: 8px;
+  letter-spacing: 7px;
   color: var(--white);
-  text-shadow: 0 0 60px rgba(6, 214, 160, 0.5);
-  line-height: 1.05;
+  text-shadow:
+    0 0 20px rgba(6, 214, 160, 0.34),
+    0 0 70px rgba(17, 138, 178, 0.28);
+  line-height: 0.98;
   margin: 0;
 }
 
 .start-tagline {
-  font-size: 13px;
-  letter-spacing: 4px;
-  opacity: 0.4;
+  font-size: 12px;
+  letter-spacing: 3px;
+  opacity: 0.62;
   text-transform: uppercase;
-  margin-top: 8px;
+  margin-top: 14px;
   font-family: 'Orbitron', sans-serif;
   font-weight: 400;
-  color: var(--emerald);
+  color: var(--off);
 }
 
 /* ───────── Start nav buttons ───────── */
 .start-nav {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
 }
 
 .start-nav-btn {
   width: 100%;
-  padding: 14px 28px;
+  min-height: 48px;
+  padding: 14px 24px;
   border: 1px solid var(--hud-border);
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.018);
   color: var(--off);
   font-family: 'Orbitron', sans-serif;
   font-size: 11px;
@@ -911,27 +962,31 @@ body {
 .start-nav-btn:hover:not(:disabled) {
   border-color: var(--ocean-blue);
   color: var(--white);
-  background: rgba(255, 255, 255, 0.03);
-  transform: translateX(4px);
+  background: rgba(17, 138, 178, 0.10);
+  transform: translateX(5px);
 }
 
 /* Primary CTA (START RUN) */
 .start-nav-primary {
-  background: var(--emerald);
+  background: linear-gradient(90deg, var(--emerald), var(--ocean-blue));
   border-color: var(--emerald);
   color: var(--dark-teal);
   font-weight: 700;
   font-size: 12px;
   letter-spacing: 4px;
-  box-shadow: 0 0 32px rgba(6, 214, 160, 0.35);
+  box-shadow:
+    0 0 28px rgba(6, 214, 160, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .start-nav-primary:hover {
-  background: #0ae8b0;
-  border-color: #0ae8b0;
+  background: linear-gradient(90deg, var(--emerald), var(--ocean-blue));
+  border-color: var(--ocean-blue);
   color: #04222e;
-  box-shadow: 0 0 48px rgba(6, 214, 160, 0.55);
-  transform: translateX(4px) scale(1.02);
+  box-shadow:
+    0 0 48px rgba(6, 214, 160, 0.44),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.26);
+  transform: translateX(5px) scale(1.01);
 }
 
 /* Disabled state (LEADERBOARD, OPTIONS) */
@@ -948,6 +1003,36 @@ body {
   flex-wrap: wrap;
   margin-top: 4px;
   align-items: center;
+}
+
+.start-run-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 420px;
+  color: rgba(168, 197, 208, 0.68);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+
+.start-run-strip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 11px;
+  border: 1px solid rgba(168, 197, 208, 0.14);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.start-run-strip i {
+  width: 4px;
+  height: 4px;
+  background: var(--bubblegum-pink);
+  box-shadow: 0 0 12px var(--bubblegum-pink);
+  transform: rotate(45deg);
 }
 
 .start-auth-btn {
@@ -974,12 +1059,12 @@ body {
 /* ───────── Hint text ───────── */
 .start-hint {
   font-size: 9px;
-  letter-spacing: 2px;
-  opacity: 0.28;
+  letter-spacing: 2.8px;
+  opacity: 0.34;
   font-family: 'Share Tech Mono', monospace;
   text-transform: uppercase;
   line-height: 1.8;
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -1646,8 +1731,30 @@ body {
   }
 
   .start-brand h1 {
-    font-size: 38px;
+    font-size: 42px;
     letter-spacing: 5px;
+  }
+
+  .start-kicker {
+    justify-content: center;
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+
+  .start-kicker::before {
+    display: none;
+  }
+
+  .start-run-strip {
+    justify-content: center;
+    max-width: 320px;
+    font-size: 9px;
+    letter-spacing: 1.4px;
+  }
+
+  .start-run-strip span {
+    min-height: 26px;
+    padding: 0 9px;
   }
 
   .start-nav {
@@ -1706,7 +1813,7 @@ body {
     gap: 16px;
   }
   .start-brand h1 {
-    font-size: 30px;
+    font-size: 32px;
     letter-spacing: 4px;
   }
   .start-tagline {
@@ -1725,6 +1832,23 @@ body {
   .start-right {
     flex: 0 0 26%;
     min-height: 150px;
+  }
+  .start-canvas-label {
+    top: 14px;
+    right: 16px;
+    font-size: 8px;
+    letter-spacing: 1.4px;
+  }
+  #start-click-hint {
+    bottom: 9%;
+    font-size: 8px;
+    letter-spacing: 2px;
+  }
+  .start-run-strip {
+    gap: 6px;
+  }
+  .start-run-strip i {
+    display: none;
   }
   .start-auth-row {
     gap: 6px;
@@ -2068,25 +2192,39 @@ body {
   text-transform: uppercase;
   opacity: 0.38;
 }
+.options-section-copy {
+  margin: -6px 0 2px;
+  max-width: 430px;
+  text-align: left;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--off);
+  opacity: 0.58;
+}
 
 /* ── Palette grid ── */
 #pal-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .pal-card {
   background: var(--pal-bg);
   border: 1px solid var(--pal-border);
   border-radius: var(--radius-sm);
-  padding: 12px 10px 10px;
+  padding: 10px;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 10px;
-  transition: border-color 0.15s, transform 0.1s;
+  min-height: 148px;
+  color: var(--pal-text);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
 }
 .pal-card:hover {
   border-color: var(--pal-accent);
@@ -2094,28 +2232,78 @@ body {
 }
 .pal-card.active {
   border-color: var(--pal-accent);
-  box-shadow: 0 0 0 1px var(--pal-accent);
+  box-shadow: 0 0 0 1px var(--pal-accent), 0 0 24px color-mix(in srgb, var(--pal-accent) 22%, transparent);
+}
+.pal-card.active::after {
+  content: 'ACTIVE';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: var(--pal-accent);
+}
+.pal-preview {
+  position: relative;
+  height: 54px;
+  border: 1px solid color-mix(in srgb, var(--pal-border) 80%, white 10%);
+  background: var(--pal-cell-a);
+  overflow: hidden;
+}
+.pal-preview-grid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 48%, color-mix(in srgb, var(--pal-cell-b) 86%, white 10%) 48% 52%, transparent 52%),
+    linear-gradient(transparent 0 48%, color-mix(in srgb, var(--pal-cell-b) 86%, white 10%) 48% 52%, transparent 52%);
+  background-size: 18px 18px;
+  opacity: 0.9;
+}
+.pal-preview-player {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: calc(50% - 9px);
+  top: calc(50% - 9px);
+  border-radius: 50%;
+  background: var(--pal-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-accent) 34%, transparent), 0 0 18px var(--pal-accent);
+}
+.pal-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 .pal-name {
   font-family: 'Orbitron', sans-serif;
-  font-size: 7px;
+  font-size: 10px;
   letter-spacing: 2px;
-  color: var(--white);
-  opacity: 0.7;
+  color: var(--pal-text);
+  opacity: 0.82;
 }
 .pal-card.active .pal-name { opacity: 1; }
+.pal-desc {
+  min-height: 34px;
+  color: var(--pal-muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  line-height: 1.45;
+  opacity: 0.76;
+}
 .pal-swatches {
-  display: flex;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
 }
 .pal-swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  height: 7px;
+  border-radius: 999px;
   display: block;
 }
 
 @media (max-width: 480px) {
   #options-inner  { padding: 24px 18px; }
-  #pal-grid       { grid-template-columns: repeat(3, 1fr); }
+  #pal-grid       { grid-template-columns: 1fr; }
+  .pal-card       { min-height: 136px; }
 }

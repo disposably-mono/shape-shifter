@@ -86,8 +86,9 @@
     <!-- Left: branding + nav -->
     <div class="start-left">
       <div class="start-brand">
+        <span class="start-kicker">ARCADE GRID SURVIVAL</span>
         <h1>SHAPE<br>SHIFTER</h1>
-        <p class="start-tagline">Match. Jump. Survive.</p>
+        <p class="start-tagline">Match the rule. Break the wave.</p>
       </div>
 
       <nav class="start-nav">
@@ -105,19 +106,29 @@
         </button>
       </nav>
 
+      <div class="start-run-strip" aria-hidden="true">
+        <span>WAVE 01</span>
+        <i></i>
+        <span>3 LIVES</span>
+        <i></i>
+        <span>SHIFT READY</span>
+      </div>
+
       <div class="start-auth-row">
         <button class="start-auth-btn" id="btn-signin">Sign In</button>
         <button class="start-auth-btn" id="btn-register">Create Account</button>
         <button class="start-auth-btn" id="btn-signout" style="display:none">Sign Out</button>
       </div>
 
-      <p class="start-hint">WASD / ARROWS · ENTER · ESC / R to clear · Q to SHIFT</p>
+      <p class="start-hint">QUEUE · MATCH · SHIFT</p>
     </div>
 
     <!-- Right: animated shape canvas -->
     <div class="start-right">
       <canvas id="start-canvas"></canvas>
-      <div id="start-click-hint">CLICK TO START</div>
+      <div class="start-canvas-vignette" aria-hidden="true"></div>
+      <div class="start-canvas-label" aria-hidden="true">LIVE GRID SIM</div>
+      <div id="start-click-hint">CLICK TO ARM</div>
     </div>
 
   </div>

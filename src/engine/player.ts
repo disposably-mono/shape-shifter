@@ -31,6 +31,14 @@ export function renderPlayer(player: PlayerState): void {
       pbody.style.borderRadius = '0';
       pbody.style.clipPath = 'polygon(50% 4%, 96% 92%, 4% 92%)';
       break;
+    case 'diamond':
+      pbody.style.borderRadius = '0';
+      pbody.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+      break;
+    case 'pentagon':
+      pbody.style.borderRadius = '0';
+      pbody.style.clipPath = 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)';
+      break;
   }
 }
 

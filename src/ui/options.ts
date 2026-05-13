@@ -28,13 +28,23 @@ export function closeOptions(): void {
 // ── HTML ──────────────────────────────────────────────────────────────────────
 function buildHTML(): string {
   const cards = PALETTES.map(p => {
-    const swatches = [p.emerald, p.oceanBlue, p.goldenPollen, p.bubblegumPink]
+    const swatches = [
+      p.colorRed, p.colorBlue, p.colorGreen, p.colorYellow,
+      p.colorPurple, p.colorOrange, p.colorCyan, p.colorLime,
+    ]
       .map(c => `<span class="pal-swatch" style="background:${c}"></span>`)
       .join('');
     return `
-      <button class="pal-card" data-palette="${p.id}" style="--pal-bg:${p.hudBg};--pal-border:${p.hudBorder};--pal-accent:${p.emerald}">
-        <span class="pal-name">${p.name}</span>
-        <span class="pal-swatches">${swatches}</span>
+      <button class="pal-card" data-palette="${p.id}" style="--pal-bg:${p.hudBg};--pal-cell-a:${p.cellA};--pal-cell-b:${p.cellB};--pal-border:${p.hudBorder};--pal-accent:${p.emerald};--pal-text:${p.white};--pal-muted:${p.off}">
+        <span class="pal-preview" aria-hidden="true">
+          <span class="pal-preview-grid"></span>
+          <span class="pal-preview-player"></span>
+        </span>
+        <span class="pal-card-copy">
+          <span class="pal-name">${p.name}</span>
+          <span class="pal-desc">${p.description}</span>
+        </span>
+        <span class="pal-swatches" aria-hidden="true">${swatches}</span>
       </button>
     `;
   }).join('');
@@ -48,6 +58,7 @@ function buildHTML(): string {
 
       <div class="options-section">
         <span class="options-section-label">COLOR PALETTE</span>
+        <p class="options-section-copy">Palettes tune the arena, HUD, player, enemies, and start-screen simulation together.</p>
         <div id="pal-grid">${cards}</div>
       </div>
     </div>
