@@ -41,9 +41,13 @@ const RULE_SPAWN_BONUS: Record<string, number> = {
   SHAPE_AND_COLOR: 2,
 };
 
-// Base spawn count: wave-only scaling, no combo inflation
+// Base spawn count: wave-only scaling, no combo inflation.
+// Capped to avoid a performance cliff at high endless waves (e.g. wave 100
+// brutal would otherwise reach ~170 enemies per tick).
+const MAX_BASE_SPAWN_COUNT = 12;
+
 function baseSpawnCount(wave: number): number {
-  return 2 + Math.floor(wave / 3);
+  return Math.min(2 + Math.floor(wave / 3), MAX_BASE_SPAWN_COUNT);
 }
 
 // Endless spawn pressure: +5% per wave beyond wave 10, capped at 3×

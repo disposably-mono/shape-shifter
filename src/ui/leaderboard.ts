@@ -11,6 +11,7 @@ let currentFilters: LeaderboardFilters = {
   starting_lives: null,
 };
 let isLoading = false;
+let pendingRefresh = false;
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 export function initLeaderboard(): void {
@@ -147,21 +148,26 @@ function bindEvents(): void {
 
 // ── Data & render ─────────────────────────────────────────────────────────────
 async function refresh(): Promise<void> {
-  if (isLoading) return;
+  if (isLoading) { pendingRefresh = true; return; }
   isLoading = true;
+  pendingRefresh = false;
   setStatus('LOADING...');
   clearTable();
 
-  const rows = await fetchLeaderboard(currentFilters, 50);
-  isLoading = false;
+  try {
+    const rows = await fetchLeaderboard(currentFilters, 50);
 
-  if (rows.length === 0) {
-    setStatus('NO SCORES YET.');
-    return;
+    if (rows.length === 0) {
+      setStatus('NO SCORES YET.');
+      return;
+    }
+
+    setStatus('');
+    renderTable(rows);
+  } finally {
+    isLoading = false;
+    if (pendingRefresh) refresh();
   }
-
-  setStatus('');
-  renderTable(rows);
 }
 
 function renderTable(rows: ScoreRow[]): void {
@@ -181,7 +187,7 @@ function renderTable(rows: ScoreRow[]): void {
         <td class="lb-col-score">${row.score.toLocaleString()}</td>
         <td class="lb-col-wave">${row.wave}</td>
         <td class="lb-col-combo">×${row.max_combo}</td>
-        <td class="lb-col-diff lb-diff-${row.difficulty}">${row.difficulty.toUpperCase()}</td>
+        <td class="lb-col-diff lb-diff-${esc(row.difficulty)}">${esc(row.difficulty.toUpperCase())}</td>
       </tr>
     `;
   }).join('');
