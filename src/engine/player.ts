@@ -3,10 +3,12 @@ import { COLOR_CSS } from '../config/colors';
 
 let pbody: HTMLElement;
 let pRings: SVGElement;
+let pRingCircles: NodeListOf<SVGCircleElement>;
 
 export function initPlayer(bodyEl: HTMLElement, ringsEl: SVGElement): void {
   pbody  = bodyEl;
   pRings = ringsEl;
+  pRingCircles = pRings.querySelectorAll('circle');
 }
 
 export function renderPlayer(player: PlayerState): void {
@@ -46,7 +48,7 @@ export function updateComboRings(combo: number): void {
   const speed = Math.max(0.7, 1.8 / (1 + combo * 0.1));
   pRings.style.animationDuration = speed + 's';
   const alpha = Math.min(0.3 + combo * 0.03, 0.8);
-  pRings.querySelectorAll('circle').forEach(c => {
+  pRingCircles.forEach(c => {
     c.setAttribute('stroke', `rgba(255,255,255,${alpha.toFixed(2)})`);
   });
 }

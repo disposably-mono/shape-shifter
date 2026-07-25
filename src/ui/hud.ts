@@ -76,9 +76,12 @@ export function updateHUD(
   }
 }
 
+let flashTimer: ReturnType<typeof setTimeout> | undefined;
+
 export function flashCombo(): void {
+  clearTimeout(flashTimer);
   comboEl.style.transform = 'scale(1.5)';
-  setTimeout(() => { comboEl.style.transform = ''; }, 130);
+  flashTimer = setTimeout(() => { comboEl.style.transform = ''; }, 130);
 }
 
 export function showComboReset(): void {
