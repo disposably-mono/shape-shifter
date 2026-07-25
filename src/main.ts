@@ -10,7 +10,7 @@ import {
   initEnemies, enemyAt, spawnEnemy, removeEnemy, clearAllEnemies,
   marchAll, refreshAllValid, repositionEnemies, ensureValidTarget,
   randomiseAllEnemies, refreshAllEnemyColors, setActiveWave,
-  getAvailableShapes, getAvailableColors,
+  getAvailableShapes, getAvailableColors, countVisibleEnemies,
 } from './engine/enemies';
 import {
   initInput, setInputActive, setOverlayCallbacks,
@@ -139,7 +139,8 @@ function marchTick(): void {
 
   pulseStartCanvas();
 
-  const diff = getDifficulty(s.config.difficulty, s.wave, s.combo, s.activeRule.id);
+  const visCount = countVisibleEnemies(s.px, s.py);
+  const diff = getDifficulty(s.config.difficulty, s.wave, s.combo, s.activeRule.id, visCount);
   const hit  = marchAll(s.px, s.py, diff.spawnCount, s.activeRule, s.player);
   if (hit) { doShift(); return; }
   refreshAllValid(s.activeRule, s.player, s.px, s.py);
@@ -203,8 +204,8 @@ initInput({
         shiftMsg.classList.add('active', 'bonus');
         setTimeout(() => shiftMsg.classList.remove('active', 'bonus'), 1000);
         renderPlayer(store.get().player);
-        randomiseAllEnemies();
         const ns2 = store.get();
+        randomiseAllEnemies(ns2.activeRule, ns2.player, ns2.px, ns2.py);
         refreshAllValid(ns2.activeRule, ns2.player, ns2.px, ns2.py);
         flashCombo();
         sfxComboMilestone(ns2.combo);
@@ -388,7 +389,7 @@ function doShift(): void {
 
   const ns = store.get();
   renderPlayer(ns.player);
-  randomiseAllEnemies();
+  randomiseAllEnemies(ns.activeRule, ns.player, ns.px, ns.py);
   refreshAllValid(ns.activeRule, ns.player, ns.px, ns.py);
   reposition(ns.px, ns.py);
   hudUpdate();
@@ -446,7 +447,7 @@ function doPerfectShift(): void {
 
   const ns = store.get();
   renderPlayer(ns.player);
-  randomiseAllEnemies();
+  randomiseAllEnemies(ns.activeRule, ns.player, ns.px, ns.py);
   refreshAllValid(ns.activeRule, ns.player, ns.px, ns.py);
   reposition(ns.px, ns.py);
   flashCombo();

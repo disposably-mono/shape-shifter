@@ -18,6 +18,10 @@ export const KNOCKBACK_RANGE       = 2.5;
 export const KNOCKBACK_DURATION_MS = 350;
 export const KNOCKBACK_TRANSITION  = 'left .3s cubic-bezier(.23,1.4,.32,1), top .3s cubic-bezier(.23,1.4,.32,1)';
 export const KNOCKBACK_RESET_TRANSITION = 'left .22s cubic-bezier(.23,1.2,.32,1), top .22s cubic-bezier(.23,1.2,.32,1)';
+export const MIN_VALID_TARGETS     = 2;
+export const VALID_SPAWN_RATIO     = 0.3;
+export const MAX_VISIBLE_ENEMIES   = 55;
+export const MAX_ADJACENT_ENEMIES  = 4;
 
 export const SHAPES  = ['circle', 'square', 'triangle', 'diamond', 'pentagon'] as const;
 export const COLORS  = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'lime'] as const;

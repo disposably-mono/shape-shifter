@@ -2,7 +2,7 @@
 import type { Enemy, EnemyDef, PlayerState, Rule } from '../types/index';
 import { ENEMY_POOL } from '../config/enemies';
 import { COLOR_CSS } from '../config/colors';
-import { VIS_R, SPAWN_R, MAX_INPUT } from './constants';
+import { VIS_R, SPAWN_R, MAX_INPUT, MIN_VALID_TARGETS, VALID_SPAWN_RATIO, MAX_ADJACENT_ENEMIES } from './constants';
 import { worldX, worldY, gk } from './grid';
 
 const MIN_SPAWN_DIST = 2; // Chebyshev — player always needs ≥2 inputs to reach
@@ -16,6 +16,7 @@ export const knockbackTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Enemies knocked back this tick skip marching
 const knockedBackThisTick = new Set<string>();
+let adjacentEnemyCount = 0;
 
 export function initEnemies(world: HTMLElement): void {
   worldEl = world;
@@ -59,6 +60,14 @@ export function getAvailableShapes(): string[] {
 
 export function getAvailableColors(): string[] {
   return [...new Set(getActivePool().map(d => d.color))];
+}
+
+export function countVisibleEnemies(px: number, py: number): number {
+  let count = 0;
+  for (const e of Object.values(enemies)) {
+    if (Math.max(Math.abs(e.gx - px), Math.abs(e.gy - py)) <= VIS_R) count++;
+  }
+  return count;
 }
 
 export function pickDef(): EnemyDef {
@@ -144,7 +153,12 @@ export function clearAllEnemies(): void {
   knockedBackThisTick.clear();
 }
 
-export function randomiseAllEnemies(): void {
+export function randomiseAllEnemies(
+  rule?: Rule,
+  player?: PlayerState,
+  px?: number,
+  py?: number,
+): void {
   const pool   = getActivePool();
   const shapes = [...new Set(pool.map(d => d.shape))] as EnemyDef['shape'][];
   const colors = [...new Set(pool.map(d => d.color))] as EnemyDef['color'][];
@@ -157,6 +171,38 @@ export function randomiseAllEnemies(): void {
     e.shapeEl.className = `eshape ${newShape}`;
     e.shapeEl.style.backgroundColor = COLOR_CSS[newColor] ?? '#fff';
     e.shapeEl.style.boxShadow = `0 0 6px ${COLOR_CSS[newColor] ?? '#fff'}44`;
+  }
+
+  if (!rule || !player || px === undefined || py === undefined) return;
+
+  let validCount = 0;
+  const reachableInvalid: Enemy[] = [];
+  for (const e of Object.values(enemies)) {
+    const md = Math.abs(e.gx - px) + Math.abs(e.gy - py);
+    if (md <= MAX_INPUT && md > 0) {
+      if (rule.check(e.def, player)) validCount++;
+      else reachableInvalid.push(e);
+    }
+  }
+
+  const needed = MIN_VALID_TARGETS - validCount;
+  if (needed <= 0) return;
+
+  const validDefs = pool.filter(d => rule.check(d, player));
+  if (!validDefs.length) return;
+
+  for (let i = reachableInvalid.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [reachableInvalid[i], reachableInvalid[j]] = [reachableInvalid[j], reachableInvalid[i]];
+  }
+
+  for (let i = 0; i < Math.min(needed, reachableInvalid.length); i++) {
+    const e   = reachableInvalid[i];
+    const def = validDefs[Math.floor(Math.random() * validDefs.length)];
+    e.def = { ...def };
+    e.shapeEl.className = `eshape ${def.shape}`;
+    e.shapeEl.style.backgroundColor = COLOR_CSS[def.color] ?? '#fff';
+    e.shapeEl.style.boxShadow = `0 0 6px ${COLOR_CSS[def.color] ?? '#fff'}44`;
   }
 }
 
@@ -213,30 +259,51 @@ export function ensureValidTarget(
   rule: Rule,
   player: PlayerState
 ): void {
+  let validCount = 0;
   for (const e of Object.values(enemies)) {
     const md = Math.abs(e.gx - px) + Math.abs(e.gy - py);
-    if (md <= MAX_INPUT && md > 0 && rule.check(e.def, player)) return;
+    if (md <= MAX_INPUT && md > 0 && rule.check(e.def, player)) {
+      validCount++;
+      if (validCount >= MIN_VALID_TARGETS) return;
+    }
   }
 
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const dist  = MIN_SPAWN_DIST + Math.floor(Math.random() * (MAX_INPUT - MIN_SPAWN_DIST + 1));
-    const angle = Math.random() * Math.PI * 2;
-    const gx    = px + Math.round(Math.cos(angle) * dist);
-    const gy    = py + Math.round(Math.sin(angle) * dist);
-    if (Math.abs(gx - px) + Math.abs(gy - py) > MAX_INPUT) continue;
-    if (tooClose(gx, gy, px, py)) continue;
-    if (occupiedAt(gx, gy)) continue;
-    spawnEnemy(gx, gy, px, py, pickValidDef(rule, player));
-    return;
+  const needed = MIN_VALID_TARGETS - validCount;
+  const candidates: Array<[number, number]> = [];
+  for (let dx = -MAX_INPUT; dx <= MAX_INPUT; dx++) {
+    for (let dy = -MAX_INPUT; dy <= MAX_INPUT; dy++) {
+      if (Math.abs(dx) + Math.abs(dy) > MAX_INPUT || (dx === 0 && dy === 0)) continue;
+      const gx = px + dx, gy = py + dy;
+      if (tooClose(gx, gy, px, py)) continue;
+      if (occupiedAt(gx, gy)) continue;
+      candidates.push([gx, gy]);
+    }
   }
 
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const gx = px + Math.floor(Math.random() * (VIS_R * 2 + 1)) - VIS_R;
-    const gy = py + Math.floor(Math.random() * (VIS_R * 2 + 1)) - VIS_R;
-    if (tooClose(gx, gy, px, py)) continue;
-    if (occupiedAt(gx, gy)) continue;
-    spawnEnemy(gx, gy, px, py, pickValidDef(rule, player));
-    return;
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+
+  let placed = 0;
+  for (const [gx, gy] of candidates) {
+    if (placed >= needed) return;
+    if (spawnEnemy(gx, gy, px, py, pickValidDef(rule, player))) placed++;
+  }
+  if (placed >= needed) return;
+
+  for (let dx = -VIS_R; dx <= VIS_R; dx++) {
+    for (let dy = -VIS_R; dy <= VIS_R; dy++) {
+      if (Math.abs(dx) + Math.abs(dy) <= MAX_INPUT) continue;
+      if (dx === 0 && dy === 0) continue;
+      const gx = px + dx, gy = py + dy;
+      if (tooClose(gx, gy, px, py)) continue;
+      if (occupiedAt(gx, gy)) continue;
+      if (spawnEnemy(gx, gy, px, py, pickValidDef(rule, player))) {
+        placed++;
+        if (placed >= needed) return;
+      }
+    }
   }
 }
 
@@ -254,10 +321,11 @@ function marchOneStep(
   if (Math.abs(dx) >= Math.abs(dy)) sx = Math.sign(dx);
   else sy = Math.sign(dy);
   const nx = e.gx + sx, ny = e.gy + sy;
+  const chebCur  = Math.max(Math.abs(e.gx - px), Math.abs(e.gy - py));
+  const chebDest = Math.max(Math.abs(nx - px), Math.abs(ny - py));
+  if (chebDest <= 1 && chebCur > 1 && adjacentEnemyCount >= MAX_ADJACENT_ENEMIES) return false;
   const nk = gk(nx, ny);
   if (moveSet.has(nk)) return false;
-  // Guard against live occupancy too: a lower-distance enemy that didn't move
-  // this tick never registers in moveSet, but its cell is still occupied.
   const liveOccupant = enemyByCell.get(nk);
   if (liveOccupant && liveOccupant !== e) return false;
   const oldK = gk(e.gx, e.gy);
@@ -265,6 +333,7 @@ function marchOneStep(
   e.gx = nx; e.gy = ny;
   enemyByCell.set(nk, e);
   moveSet.add(nk);
+  if (chebDest <= 1 && chebCur > 1) adjacentEnemyCount++;
   e.el.style.left = worldX(nx, px) + 'px';
   e.el.style.top  = worldY(ny, py) + 'px';
   updateOffscreenClass(e, px, py);
@@ -280,15 +349,22 @@ export function marchAll(
 ): boolean {
   clearKnockbackFlags();
 
+  adjacentEnemyCount = 0;
+  for (const e of Object.values(enemies)) {
+    if (Math.max(Math.abs(e.gx - px), Math.abs(e.gy - py)) <= 1) adjacentEnemyCount++;
+  }
+
   const reachableValid = Object.values(enemies).filter(e => {
     const md = Math.abs(e.gx - px) + Math.abs(e.gy - py);
     return md <= MAX_INPUT && md > 0 && rule.check(e.def, player);
   }).length;
 
-  for (let i = 0; i < spawnCount; i++) {
-    const roll = Math.random();
+  const validQuota = Math.max(1, Math.ceil(spawnCount * VALID_SPAWN_RATIO));
 
-    if (reachableValid === 0 && i === 0) {
+  for (let i = 0; i < spawnCount; i++) {
+    const useValid = i < validQuota || (reachableValid === 0 && i === 0);
+
+    if (useValid) {
       const radius = MIN_SPAWN_DIST + Math.floor(Math.random() * (MAX_INPUT - MIN_SPAWN_DIST + 1));
       const angle  = Math.random() * Math.PI * 2;
       spawnEnemy(
@@ -299,6 +375,7 @@ export function marchAll(
       continue;
     }
 
+    const roll = Math.random();
     let radius: number;
     if (roll < 0.5)      radius = SPAWN_R;
     else if (roll < 0.8) radius = VIS_R - 1 + Math.floor(Math.random() * 3);

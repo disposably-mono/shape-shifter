@@ -1,5 +1,6 @@
 // src/config/difficulty.ts
 import type { DifficultyTier, DifficultyConfig, DifficultyCalc } from '../types/index';
+import { MAX_VISIBLE_ENEMIES } from '../engine/constants';
 
 // ─── BPM-based march ticks ───────────────────────────────────────────────────
 // marchTick (ms) = 60000 / BPM
@@ -61,13 +62,23 @@ export function getDifficulty(
   wave: number,
   _combo: number,
   ruleId = 'SHAPE_OR_COLOR',
+  currentVisibleEnemies = 0,
 ): DifficultyCalc {
   const cfg       = DIFFICULTY_TIERS[tier];
   const marchTick = BPM_MARCH_TICK[tier];
   const ruleBonus  = RULE_SPAWN_BONUS[ruleId] ?? 0;
-  const spawnCount = Math.round(
+  let spawnCount = Math.round(
     (baseSpawnCount(wave) + ruleBonus) * cfg.spawnRateMultiplier * endlessMultiplier(wave)
   );
+
+  if (currentVisibleEnemies > 0) {
+    const density = currentVisibleEnemies / MAX_VISIBLE_ENEMIES;
+    if (density > 0.7) {
+      const reduction = (Math.min(density, 1.5) - 0.7) / 0.8;
+      spawnCount = Math.max(1, Math.round(spawnCount * (1 - reduction * 0.85)));
+    }
+  }
+
   return { marchTick, spawnCount };
 }
 
