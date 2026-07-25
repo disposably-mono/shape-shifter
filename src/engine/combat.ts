@@ -1,6 +1,6 @@
 // src/engine/combat.ts
 import type { PlayerState, Rule, EnemyDef } from '../types/index';
-import { enemies, enemyAt, enemyByCell, removeEnemy, markKnockedBack, knockbackTimers, pickDef } from './enemies';
+import { enemies, enemyAt, enemyByCell, removeEnemy, markKnockedBack, knockbackTimers, getAvailableShapes, getAvailableColors } from './enemies';
 import {
   SHIFT_RANGE,
   KNOCKBACK_RANGE,
@@ -161,6 +161,10 @@ export function executeShift(px: number, py: number): PlayerState {
       removeEnemy(e.id);
     }
   }
-  const def = pickDef();
-  return { shape: def.shape, color: def.color };
+  const shapes = getAvailableShapes();
+  const colors = getAvailableColors();
+  return {
+    shape: shapes[Math.floor(Math.random() * shapes.length)] as PlayerState['shape'],
+    color: colors[Math.floor(Math.random() * colors.length)] as PlayerState['color'],
+  };
 }

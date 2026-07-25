@@ -53,6 +53,14 @@ function makeEnemyEl(def: EnemyDef): { wrap: HTMLElement; shapeEl: HTMLElement }
   return { wrap, shapeEl: sh };
 }
 
+export function getAvailableShapes(): string[] {
+  return [...new Set(getActivePool().map(d => d.shape))];
+}
+
+export function getAvailableColors(): string[] {
+  return [...new Set(getActivePool().map(d => d.color))];
+}
+
 export function pickDef(): EnemyDef {
   const pool = getActivePool();
   const tot = pool.reduce((s, d) => s + d.weight, 0);

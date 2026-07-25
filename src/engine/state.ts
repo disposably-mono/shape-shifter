@@ -1,4 +1,4 @@
-import type { GameState, LobbyConfig, Rule, PlayerState, Direction, WaveTrigger } from '../types/index';
+import type { GameState, LobbyConfig, Rule, PlayerState, Direction, WaveTrigger, Shape, Color } from '../types/index';
 import { RULES } from '../config/rules';
 import { SHAPES, COLORS, MAX_LIVES, MAX_INPUT } from './constants';
 
@@ -10,22 +10,26 @@ export const DEFAULT_LOBBY_CONFIG: LobbyConfig = {
   waveTrigger: 'random',
 };
 
-function randomPlayer(): PlayerState {
+function randomPlayer(shapes?: string[], colors?: string[]): PlayerState {
+  const s = shapes?.length ? shapes : SHAPES as readonly string[];
+  const c = colors?.length ? colors : COLORS as readonly string[];
   return {
-    shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
-    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    shape: s[Math.floor(Math.random() * s.length)] as Shape,
+    color: c[Math.floor(Math.random() * c.length)] as Color,
   };
 }
 
 export function createInitialState(
   config: LobbyConfig = DEFAULT_LOBBY_CONFIG,
   activeRule: Rule = RULES['SHAPE_OR_COLOR'],
-  waveTrigger: WaveTrigger = { type: 'combo', threshold: 20 }
+  waveTrigger: WaveTrigger = { type: 'combo', threshold: 20 },
+  availableShapes?: string[],
+  availableColors?: string[],
 ): GameState {
   return {
     px: 0,
     py: 0,
-    player: randomPlayer(),
+    player: randomPlayer(availableShapes, availableColors),
     activeRule,
     score: 0,
     combo: 0,
@@ -87,6 +91,12 @@ export const store: StateStore = new StateStore(
   createInitialState()
 );
 
-export function resetStore(config: LobbyConfig, activeRule: Rule, waveTrigger: WaveTrigger): void {
-  store.reset(createInitialState(config, activeRule, waveTrigger));
+export function resetStore(
+  config: LobbyConfig,
+  activeRule: Rule,
+  waveTrigger: WaveTrigger,
+  availableShapes?: string[],
+  availableColors?: string[],
+): void {
+  store.reset(createInitialState(config, activeRule, waveTrigger, availableShapes, availableColors));
 }

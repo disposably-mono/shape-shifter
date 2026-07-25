@@ -10,6 +10,7 @@ import {
   initEnemies, enemyAt, spawnEnemy, removeEnemy, clearAllEnemies,
   marchAll, refreshAllValid, repositionEnemies, ensureValidTarget,
   randomiseAllEnemies, refreshAllEnemyColors, setActiveWave,
+  getAvailableShapes, getAvailableColors,
 } from './engine/enemies';
 import {
   initInput, setInputActive, setOverlayCallbacks,
@@ -570,8 +571,8 @@ function startGame(config?: LobbyConfig): void {
     activeConfig.difficulty,
   );
 
-  resetStore(activeConfig, rule, trigger);
   setActiveWave(activeConfig.startingWave);
+  resetStore(activeConfig, rule, trigger, getAvailableShapes(), getAvailableColors());
 
   perfectShiftCharges = 1;
   perfectKillCounter  = 0;
