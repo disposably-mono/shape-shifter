@@ -33,7 +33,6 @@ export interface PlayerState {
 
 export interface DifficultyConfig {
   tier: DifficultyTier;
-  marchSpeedMultiplier: number;
   spawnRateMultiplier: number;
   scoreMultiplier: number;
 }

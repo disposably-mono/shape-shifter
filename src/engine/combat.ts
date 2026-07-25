@@ -1,11 +1,17 @@
 // src/engine/combat.ts
 import type { PlayerState, Rule, EnemyDef } from '../types/index';
-import { enemies, removeEnemy, markKnockedBack, knockbackTimers, pickDef } from './enemies';
-import { SHIFT_RANGE } from './constants';
-import { worldX, worldY } from './grid';
+import { enemies, enemyAt, enemyByCell, removeEnemy, markKnockedBack, knockbackTimers, pickDef } from './enemies';
+import {
+  SHIFT_RANGE,
+  KNOCKBACK_RANGE,
+  KNOCKBACK_DURATION_MS,
+  KNOCKBACK_TRANSITION,
+  KNOCKBACK_RESET_TRANSITION,
+} from './constants';
+import { worldX, worldY, gk } from './grid';
 
 /**
- * Knockback: push all enemies in the 3×3 ring around the kill cell.
+ * Knockback: push all enemies within Euclidean distance ~2.5 of the kill cell.
  * Collects all desired moves first, then resolves conflicts by distance.
  * Diagonal moves get a cardinal fallback if the diagonal target is blocked.
  * The ripple shape matches the eliminated enemy.
@@ -24,23 +30,20 @@ export function displaceNearby(
 
   const chainKills: EnemyDef[] = [];
 
-  // 1. Collect all (enemy → desired cell) pairs
   const moves: Array<{ enemy: import('../types/index').Enemy; nx: number; ny: number; dist: number }> = [];
 
   for (const e of Object.values(enemies)) {
     const dx = e.gx - elimGX, dy = e.gy - elimGY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 0.5 || dist > 2.5) continue;
+    if (dist < 0.5 || dist > KNOCKBACK_RANGE) continue;
 
     const nx = e.gx + Math.sign(dx);
     const ny = e.gy + Math.sign(dy);
-    if (nx === playerGX && ny === playerGY) continue; // never land on player
+    if (nx === playerGX && ny === playerGY) continue;
 
     moves.push({ enemy: e, nx, ny, dist });
   }
 
-  // 2. Resolve conflicts: if two enemies want the same cell,
-  //    the one closer to the blast center wins (smaller dist = more directly hit)
   const claimed = new Map<string, import('../types/index').Enemy>();
   for (const m of moves) {
     const key = `${m.nx},${m.ny}`;
@@ -50,59 +53,39 @@ export function displaceNearby(
     }
   }
 
-  // 3. Apply moves — process farthest-first so outer enemies vacate cells
-  //    before closer enemies try to occupy them. Use live positions throughout
-  //    so we never land on an enemy that failed to move.
-  //    `taken` tracks every cell committed to this pass (including fallbacks
-  //    not in `claimed`) to prevent two enemies landing on the same cell.
   const sortedMoves = [...claimed.entries()].sort(([, ea], [, eb]) => {
     const da = moves.find(m => m.enemy === ea)!.dist;
     const db = moves.find(m => m.enemy === eb)!.dist;
-    return db - da; // farthest first
+    return db - da;
   });
 
   const taken = new Set<string>();
 
   for (const [key, e] of sortedMoves) {
-    if (!enemies[e.id]) continue; // skip if chain-killed earlier this pass
+    if (!enemies[e.id]) continue;
 
     const [nx, ny] = key.split(',').map(Number);
 
-    const blocker = Object.values(enemies).find(
-      other => other.id !== e.id && other.gx === nx && other.gy === ny
-    );
+    const rawBlocker = enemyAt(nx, ny);
+    const blocker = rawBlocker && rawBlocker.id !== e.id ? rawBlocker : undefined;
 
-    // Diagonal fallback: if diagonal move is blocked, try cardinal components
     if (blocker && Math.abs(nx - e.gx) === 1 && Math.abs(ny - e.gy) === 1) {
       const options = [
-        { fx: nx, fy: e.gy },  // horizontal only
-        { fx: e.gx, fy: ny },  // vertical only
+        { fx: nx, fy: e.gy },
+        { fx: e.gx, fy: ny },
       ];
 
       let applied = false;
       for (const opt of options) {
         const fallbackKey = `${opt.fx},${opt.fy}`;
-        const fallbackBlocker = Object.values(enemies).find(
-          other => other.id !== e.id && other.gx === opt.fx && other.gy === opt.fy
-        );
+        const rawFb = enemyAt(opt.fx, opt.fy);
+        const fallbackBlocker = rawFb && rawFb.id !== e.id ? rawFb : undefined;
 
         if (!taken.has(fallbackKey) && !fallbackBlocker) {
           taken.add(fallbackKey);
-          e.gx = opt.fx;
-          e.gy = opt.fy;
-          e.el.style.transition = 'left .3s cubic-bezier(.23,1.4,.32,1), top .3s cubic-bezier(.23,1.4,.32,1)';
-          e.el.style.left = worldX(opt.fx, playerGX) + 'px';
-          e.el.style.top  = worldY(opt.fy, playerGY) + 'px';
-          markKnockedBack(e.id);
+          updateEnemyCell(e, opt.fx, opt.fy);
+          applyKnockbackTransition(e, opt.fx, opt.fy, playerGX, playerGY);
           applied = true;
-
-          clearTimeout(knockbackTimers.get(e.id));
-          knockbackTimers.set(e.id, setTimeout(() => {
-            knockbackTimers.delete(e.id);
-            if (enemies[e.id]) {
-              e.el.style.transition = 'left .22s cubic-bezier(.23,1.2,.32,1), top .22s cubic-bezier(.23,1.2,.32,1)';
-            }
-          }, 350));
           break;
         }
       }
@@ -111,43 +94,49 @@ export function displaceNearby(
     }
 
     if (blocker) {
-      // chain kill: stationary enemy is eliminated by the knocked-back enemy
       chainKills.push(blocker.def);
       removeEnemy(blocker.id);
       taken.add(key);
-      e.gx = nx; e.gy = ny;
-      e.el.style.transition = 'left .3s cubic-bezier(.23,1.4,.32,1), top .3s cubic-bezier(.23,1.4,.32,1)';
-      e.el.style.left = worldX(nx, playerGX) + 'px';
-      e.el.style.top  = worldY(ny, playerGY) + 'px';
-      markKnockedBack(e.id);
-      clearTimeout(knockbackTimers.get(e.id));
-      knockbackTimers.set(e.id, setTimeout(() => {
-        knockbackTimers.delete(e.id);
-        if (enemies[e.id]) {
-          e.el.style.transition = 'left .22s cubic-bezier(.23,1.2,.32,1), top .22s cubic-bezier(.23,1.2,.32,1)';
-        }
-      }, 350));
+      updateEnemyCell(e, nx, ny);
+      applyKnockbackTransition(e, nx, ny, playerGX, playerGY);
       continue;
     }
 
     taken.add(key);
-    e.gx = nx;
-    e.gy = ny;
-    e.el.style.transition = 'left .3s cubic-bezier(.23,1.4,.32,1), top .3s cubic-bezier(.23,1.4,.32,1)';
-    e.el.style.left = worldX(nx, playerGX) + 'px';
-    e.el.style.top  = worldY(ny, playerGY) + 'px';
-    markKnockedBack(e.id);
-
-    clearTimeout(knockbackTimers.get(e.id));
-    knockbackTimers.set(e.id, setTimeout(() => {
-      knockbackTimers.delete(e.id);
-      if (enemies[e.id]) {
-        e.el.style.transition = 'left .22s cubic-bezier(.23,1.2,.32,1), top .22s cubic-bezier(.23,1.2,.32,1)';
-      }
-    }, 350));
+    updateEnemyCell(e, nx, ny);
+    applyKnockbackTransition(e, nx, ny, playerGX, playerGY);
   }
 
   return chainKills;
+}
+
+function updateEnemyCell(e: import('../types/index').Enemy, nx: number, ny: number): void {
+  const oldK = gk(e.gx, e.gy);
+  if (enemyByCell.get(oldK) === e) enemyByCell.delete(oldK);
+  e.gx = nx;
+  e.gy = ny;
+  enemyByCell.set(gk(nx, ny), e);
+}
+
+function applyKnockbackTransition(
+  e: import('../types/index').Enemy,
+  gx: number,
+  gy: number,
+  pgx: number,
+  pgy: number,
+): void {
+  e.el.style.transition = KNOCKBACK_TRANSITION;
+  e.el.style.left = worldX(gx, pgx) + 'px';
+  e.el.style.top  = worldY(gy, pgy) + 'px';
+  markKnockedBack(e.id);
+
+  clearTimeout(knockbackTimers.get(e.id));
+  knockbackTimers.set(e.id, setTimeout(() => {
+    knockbackTimers.delete(e.id);
+    if (enemies[e.id]) {
+      e.el.style.transition = KNOCKBACK_RESET_TRANSITION;
+    }
+  }, KNOCKBACK_DURATION_MS));
 }
 
 function spawnRipple(

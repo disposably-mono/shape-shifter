@@ -7,7 +7,7 @@ import { store, resetStore, DEFAULT_LOBBY_CONFIG } from './engine/state';
 import { initGrid, renderCells, getJumpableCells, clearCellPool } from './engine/grid';
 import { initPlayer, renderPlayer, updateComboRings, animateJump } from './engine/player';
 import {
-  initEnemies, enemies, spawnEnemy, removeEnemy, clearAllEnemies,
+  initEnemies, enemyAt, spawnEnemy, removeEnemy, clearAllEnemies,
   marchAll, refreshAllValid, repositionEnemies, ensureValidTarget,
   randomiseAllEnemies, refreshAllEnemyColors, setActiveWave,
 } from './engine/enemies';
@@ -36,8 +36,15 @@ import {
   sfxComboMilestone, sfxWaveUp,
   sfxMetronomeDown, sfxMetronomeUp,
 } from './engine/audio';
-import { SPAWN_R, MAX_INPUT, MAX_SHIFT_CHARGES, PERFECT_KILLS_PER_CHARGE } from './engine/constants';
+import {
+  C, SPAWN_R, MAX_INPUT, MAX_SHIFT_CHARGES, PERFECT_KILLS_PER_CHARGE,
+  INITIAL_ENEMY_COUNT, SHIFT_COOLDOWN_MS, WAVE_BANNER_DELAY_MS, WAVE_BANNER_SHOW_MS,
+} from './engine/constants';
 import { initHitstop, triggerHitstop, cancelHitstop } from './engine/hitstop';
+import {
+  initStartCanvas, stopStartCanvas, restartStartCanvas,
+  pulseStartCanvas, refreshStartCanvasPalette,
+} from './ui/start-canvas';
 import type { LobbyConfig, GameState, ScoreSubmission } from './types/index';
 
 // ─── Inject CSS tokens then apply any saved palette override ─────────────────
@@ -71,8 +78,6 @@ initDpad();
 let metroBeat = 0;
 
 // ─── Perfect shift charge tracker ────────────────────────────────────────────
-const SHIFT_COOLDOWN_MS = 1000;
-
 let perfectShiftCharges = 1;
 let perfectKillCounter  = 0;
 let shiftOnCooldown     = false;
@@ -130,8 +135,7 @@ function marchTick(): void {
   tickMetronome();
   metroBeat === 0 ? sfxMetronomeDown() : sfxMetronomeUp();
 
-  // Pulse start-screen canvas on beat if visible
-  pulsStartCanvas();
+  pulseStartCanvas();
 
   const diff = getDifficulty(s.config.difficulty, s.wave, s.combo, s.activeRule.id);
   const hit  = marchAll(s.px, s.py, diff.spawnCount, s.activeRule, s.player);
@@ -165,7 +169,7 @@ initInput({
     }
 
     const tx     = s.px + dx, ty = s.py + dy;
-    const target = Object.values(enemies).find(e => e.gx === tx && e.gy === ty);
+    const target = enemyAt(tx, ty);
 
     if (!target) {
       doComboReset();
@@ -280,10 +284,11 @@ document.getElementById('guest-cta-btn')!.addEventListener('click', () => openAu
 
 // ─── Hotkey: Q = manual perfect shift ────────────────────────────────────────
 document.addEventListener('keydown', (e: KeyboardEvent) => {
-  if (e.key === 'q' || e.key === 'Q') {
-    e.preventDefault();
-    doPerfectShift();
-  }
+  if (e.key !== 'q' && e.key !== 'Q') return;
+  const tag = (e.target as HTMLElement)?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  e.preventDefault();
+  doPerfectShift();
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -295,8 +300,8 @@ function triggerBreakHeart(): void {
 }
 
 function reposition(px: number, py: number): void {
-  const cx = vpEl.clientWidth  / 2 - 68 / 2;
-  const cy = vpEl.clientHeight / 2 - 68 / 2;
+  const cx = vpEl.clientWidth  / 2 - C / 2;
+  const cy = vpEl.clientHeight / 2 - C / 2;
   playerEl.style.left = cx + 'px';
   playerEl.style.top  = cy + 'px';
   worldEl.style.left  = cx + 'px';
@@ -330,6 +335,25 @@ function doComboReset(): void {
   sfxComboReset();
   refreshMarchTimer();
   hudUpdate();
+}
+
+// ─── Toast notification ──────────────────────────────────────────────────────
+function showToast(msg: string): void {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 400);
+  }, 3000);
+}
+
+async function submitAndNotify(submission: ScoreSubmission): Promise<void> {
+  const ok = await submitScore(submission);
+  if (!ok) showToast('Score upload failed — check your connection');
 }
 
 // ─── Score submission ─────────────────────────────────────────────────────────
@@ -384,7 +408,7 @@ function doShift(): void {
     guestCta.style.display = getCachedProfile() ? 'none' : 'flex';
 
     const profile = getCachedProfile();
-    if (profile) void submitScore(buildSubmission(ns, profile));
+    if (profile) void submitAndNotify(buildSubmission(ns, profile));
 
     showOverlay('lose-ov');
     return;
@@ -457,7 +481,7 @@ function doWin(): void {
     `SCORE: ${s.score.toLocaleString()}  |  COMBO: ×${s.maxCombo}  |  LIVES: ${s.lives}`;
 
   const winProfile = getCachedProfile();
-  if (winProfile) void submitScore(buildSubmission(s, winProfile));
+  if (winProfile) void submitAndNotify(buildSubmission(s, winProfile));
 
   showOverlay('win-ov');
 }
@@ -495,7 +519,7 @@ function advanceWave(): void {
     startMarchTimer();
     hudUpdate();
     sfxWaveUp();
-  }, 1800);
+  }, WAVE_BANNER_DELAY_MS);
 }
 
 function showWaveBanner(wave: number, ruleLabel: string, mutation: boolean): void {
@@ -515,14 +539,14 @@ function showWaveBanner(wave: number, ruleLabel: string, mutation: boolean): voi
   setTimeout(() => {
     banner.classList.remove('active');
     setTimeout(() => banner.remove(), 400);
-  }, 1400);
+  }, WAVE_BANNER_SHOW_MS);
 }
 
 // ─── Game flow ────────────────────────────────────────────────────────────────
 function spawnInitialEnemies(): void {
   const s = store.get();
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
+  for (let i = 0; i < INITIAL_ENEMY_COUNT; i++) {
+    const angle = (i / INITIAL_ENEMY_COUNT) * Math.PI * 2;
     const gx    = s.px + Math.round(Math.cos(angle) * SPAWN_R);
     const gy    = s.py + Math.round(Math.sin(angle) * SPAWN_R);
     spawnEnemy(gx, gy, s.px, s.py);
@@ -531,11 +555,11 @@ function spawnInitialEnemies(): void {
 }
 
 function startGame(config?: LobbyConfig): void {
-  cancelAnimationFrame(canvasAnimId);
+  stopStartCanvas();
   stopMarchTimer();
   clearAllEnemies();
   clearCellPool();
-  (trailSvg as any).innerHTML = '';
+  trailSvg.textContent = '';
 
   const activeConfig: LobbyConfig = config ?? store.get().config;
   const rule    = pickWaveRule(activeConfig.startingWave, activeConfig);
@@ -580,236 +604,6 @@ function continueEndless(): void {
   setInputActive(true);
   showMetronome();
   advanceWave();
-}
-
-function nextWave(): void {
-  hideAllOverlays();
-  advanceWave();
-}
-
-// ─── Start screen canvas animation ───────────────────────────────────────────
-// Single shape morphing circle→square→triangle, color cycling, beats on metro
-
-let startPalette = ['#ef476f', '#06d6a0', '#118ab2', '#ffd166', '#ffffff'];
-let orbitColors = ['#ef476f', '#ffd166', '#118ab2', '#06d6a0'];
-let canvasShape      = 0;   // 0=circle, 1=square, 2=triangle, 3=diamond, 4=pentagon
-let canvasColor      = 0;
-let canvasMorphT     = 0;   // 0→1 morph progress
-let canvasBeat       = false;
-let canvasAnimId     = 0;
-let canvasLastTime   = 0;
-const MORPH_DURATION = 1800; // ms per full morph cycle
-
-function initStartCanvas(): void {
-  const canvas = document.getElementById('start-canvas') as HTMLCanvasElement;
-  if (!canvas) return;
-  refreshStartCanvasPalette();
-
-  function resize() {
-    const parent = canvas.parentElement!;
-    canvas.width  = parent.clientWidth;
-    canvas.height = parent.clientHeight;
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  function draw(now: number) {
-    const dt = now - canvasLastTime;
-    canvasLastTime = now;
-
-    canvasMorphT = (canvasMorphT + dt / MORPH_DURATION) % 1;
-    if (canvasMorphT < dt / MORPH_DURATION) {
-      // Completed a morph cycle — advance shape and color
-      canvasShape = (canvasShape + 1) % 5;
-      canvasColor = (canvasColor + 1) % startPalette.length;
-    }
-
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const cx  = canvas.width  / 2;
-    const cy  = canvas.height / 2;
-    const minSide = Math.min(canvas.width, canvas.height);
-    const r   = minSide * 0.20;
-    const col = startPalette[canvasColor];
-
-    drawStartGrid(ctx, canvas.width, canvas.height, now);
-    drawOrbitingThreats(ctx, cx, cy, minSide, now);
-
-    // Beat pulse
-    const beatScale = canvasBeat ? 1.12 : 1.0;
-    const scale     = beatScale + Math.sin(canvasMorphT * Math.PI * 2) * 0.04;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(scale, scale);
-
-    // Glow
-    ctx.shadowBlur  = 58;
-    ctx.shadowColor = col;
-    ctx.fillStyle   = col;
-    ctx.globalAlpha = 0.16;
-
-    drawShape(ctx, canvasShape, r * 1.65);
-    ctx.fill();
-
-    // Core shape
-    ctx.globalAlpha = 0.90;
-    ctx.shadowBlur  = 28;
-    drawShape(ctx, canvasShape, r);
-    ctx.fill();
-
-    // Inner highlight
-    ctx.globalAlpha = 0.22;
-    ctx.shadowBlur  = 0;
-    ctx.fillStyle   = '#ffffff';
-    drawShape(ctx, canvasShape, r * 0.35);
-    ctx.fill();
-
-    ctx.restore();
-
-    if (canvasBeat) canvasBeat = false;
-    canvasAnimId = requestAnimationFrame(draw);
-  }
-
-  canvasLastTime = performance.now();
-  canvasAnimId   = requestAnimationFrame(draw);
-}
-
-function refreshStartCanvasPalette(): void {
-  const css = getComputedStyle(document.documentElement);
-  const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
-
-  startPalette = [
-    read('--bubblegum-pink', '#ef476f'),
-    read('--emerald', '#06d6a0'),
-    read('--ocean-blue', '#118ab2'),
-    read('--golden-pollen', '#ffd166'),
-    read('--white', '#ffffff'),
-  ];
-  orbitColors = [
-    read('--bubblegum-pink', '#ef476f'),
-    read('--golden-pollen', '#ffd166'),
-    read('--ocean-blue', '#118ab2'),
-    read('--emerald', '#06d6a0'),
-  ];
-}
-
-function drawStartGrid(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  now: number,
-): void {
-  const spacing = 52;
-  const drift = (now / 55) % spacing;
-
-  ctx.save();
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(168,197,208,0.055)';
-  for (let x = -spacing + drift; x < width + spacing; x += spacing) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
-  }
-  for (let y = -spacing + drift; y < height + spacing; y += spacing) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-
-  ctx.strokeStyle = 'rgba(6,214,160,0.14)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([8, 16]);
-  ctx.lineDashOffset = -now / 38;
-  ctx.beginPath();
-  ctx.moveTo(width * 0.20, height * 0.62);
-  ctx.lineTo(width * 0.42, height * 0.48);
-  ctx.lineTo(width * 0.50, height * 0.50);
-  ctx.lineTo(width * 0.66, height * 0.36);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawOrbitingThreats(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  minSide: number,
-  now: number,
-): void {
-  const orbit = minSide * 0.32;
-  const t = now / 2600;
-
-  ctx.save();
-  ctx.strokeStyle = 'rgba(168,197,208,0.08)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(cx, cy, orbit, 0, Math.PI * 2);
-  ctx.stroke();
-
-  for (let i = 0; i < 4; i++) {
-    const a = t + i * Math.PI / 2;
-    const x = cx + Math.cos(a) * orbit;
-    const y = cy + Math.sin(a) * orbit * 0.78;
-    const color = orbitColors[i];
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(a * 0.6);
-    ctx.shadowBlur = 16;
-    ctx.shadowColor = color;
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.72;
-    drawShape(ctx, (i + 1) % 5, Math.max(9, minSide * 0.032));
-    ctx.fill();
-    ctx.restore();
-  }
-  ctx.restore();
-}
-
-function drawShape(ctx: CanvasRenderingContext2D, shape: number, r: number): void {
-  ctx.beginPath();
-  if (shape === 0) {
-    // Circle
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-  } else if (shape === 1) {
-    // Square (rounded)
-    const s = r * 0.85;
-    ctx.roundRect(-s, -s, s * 2, s * 2, s * 0.18);
-  } else if (shape === 2) {
-    // Triangle
-    const h = r * 1.1;
-    ctx.moveTo(0, -h);
-    ctx.lineTo(h * 0.866, h * 0.5);
-    ctx.lineTo(-h * 0.866, h * 0.5);
-    ctx.closePath();
-  } else if (shape === 3) {
-    // Diamond
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r, 0);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r, 0);
-    ctx.closePath();
-  } else {
-    // Pentagon
-    for (let i = 0; i < 5; i++) {
-      const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
-      const x = Math.cos(a) * r, y = Math.sin(a) * r;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-  }
-}
-
-// Called from marchTick to pulse the canvas on beat
-function pulsStartCanvas(): void {
-  const startOv = document.getElementById('start-ov');
-  if (startOv && startOv.style.display !== 'none') {
-    canvasBeat = true;
-  }
 }
 
 // ─── Auth bootstrap ───────────────────────────────────────────────────────────
@@ -946,5 +740,9 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
 });
 
 // ─── Initial layout + resize ──────────────────────────────────────────────────
-window.addEventListener('resize', () => reposition(store.get().px, store.get().py));
+let resizeTimer: ReturnType<typeof setTimeout>;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => reposition(store.get().px, store.get().py), 100);
+});
 reposition(0, 0);

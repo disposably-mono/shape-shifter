@@ -4,6 +4,8 @@ let vpEl: HTMLElement;
 let worldEl: HTMLElement;
 const cellPool: Record<string, HTMLElement> = {};
 
+const CULL_MARGIN = 4;
+
 export function initGrid(vp: HTMLElement, world: HTMLElement): void {
   vpEl = vp;
   worldEl = world;
@@ -37,6 +39,8 @@ function posCell(el: HTMLElement, gx: number, gy: number, px: number, py: number
 
 export function renderCells(px: number, py: number, jumpable: Set<string>): void {
   const r = VIS_R + 2;
+  const cullR = VIS_R + 2 + CULL_MARGIN;
+
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       const gx = px + dx, gy = py + dy;
@@ -44,10 +48,20 @@ export function renderCells(px: number, py: number, jumpable: Set<string>): void
       posCell(cell, gx, gy, px, py);
     }
   }
-  // Update jumpable highlights
+
   for (const el of Object.values(cellPool)) el.classList.remove('jumpable');
   for (const k of jumpable) {
     if (cellPool[k]) cellPool[k].classList.add('jumpable');
+  }
+
+  for (const k in cellPool) {
+    const parts = k.split(',');
+    const gx = parseInt(parts[0], 10);
+    const gy = parseInt(parts[1], 10);
+    if (Math.abs(gx - px) > cullR || Math.abs(gy - py) > cullR) {
+      cellPool[k].remove();
+      delete cellPool[k];
+    }
   }
 }
 
@@ -60,12 +74,6 @@ export function getJumpableCells(px: number, py: number, maxInput: number): Set<
     }
   }
   return result;
-}
-
-export function layoutWorld(worldEl: HTMLElement, vpEl: HTMLElement): void {
-  const wEl = worldEl;
-  wEl.style.left = cx() + 'px';
-  wEl.style.top  = cy() + 'px';
 }
 
 export function clearCellPool(): void {

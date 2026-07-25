@@ -223,5 +223,5 @@ function handleLaunch(): void {
   cfg.rulePool = checked;
   saveConfig();
   closeLobby();
-  onLaunch?.(cfg);
+  onLaunch?.({ ...cfg, rulePool: [...cfg.rulePool] });
 }

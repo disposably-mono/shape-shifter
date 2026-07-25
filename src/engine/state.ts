@@ -68,6 +68,11 @@ class StateStore {
     this.notify();
   }
 
+  reset(initial: GameState): void {
+    this.state = initial;
+    this.notify();
+  }
+
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -78,11 +83,10 @@ class StateStore {
   }
 }
 
-export let store: StateStore = new StateStore(
+export const store: StateStore = new StateStore(
   createInitialState()
 );
 
-/** Call this to reset the store at game start */
 export function resetStore(config: LobbyConfig, activeRule: Rule, waveTrigger: WaveTrigger): void {
-  store = new StateStore(createInitialState(config, activeRule, waveTrigger));
+  store.reset(createInitialState(config, activeRule, waveTrigger));
 }

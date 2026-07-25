@@ -11,6 +11,7 @@ let worldEl: HTMLElement;
 let enemyCounter = 0;
 let activeWave = 1;
 export const enemies: Record<string, Enemy> = {};
+export const enemyByCell = new Map<string, Enemy>();
 export const knockbackTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Enemies knocked back this tick skip marching
@@ -77,12 +78,14 @@ export function refreshAllEnemyColors(): void {
   }
 }
 
+export function enemyAt(gx: number, gy: number): Enemy | undefined {
+  return enemyByCell.get(gk(gx, gy));
+}
+
 export function occupiedAt(gx: number, gy: number, excludeId?: string): boolean {
-  for (const e of Object.values(enemies)) {
-    if (excludeId && e.id === excludeId) continue;
-    if (e.gx === gx && e.gy === gy) return true;
-  }
-  return false;
+  const e = enemyByCell.get(gk(gx, gy));
+  if (!e) return false;
+  return !(excludeId && e.id === excludeId);
 }
 
 function tooClose(gx: number, gy: number, px: number, py: number): boolean {
@@ -110,6 +113,7 @@ export function spawnEnemy(
 
   const en: Enemy = { id, def, gx, gy, el: wrap, shapeEl };
   enemies[id] = en;
+  enemyByCell.set(gk(gx, gy), en);
   updateOffscreenClass(en, px, py);
   return en;
 }
@@ -117,6 +121,8 @@ export function spawnEnemy(
 export function removeEnemy(id: string): void {
   const e = enemies[id];
   if (!e) return;
+  const k = gk(e.gx, e.gy);
+  if (enemyByCell.get(k) === e) enemyByCell.delete(k);
   e.el.remove();
   delete enemies[id];
   knockedBackThisTick.delete(id);
@@ -126,6 +132,7 @@ export function removeEnemy(id: string): void {
 
 export function clearAllEnemies(): void {
   for (const id of Object.keys(enemies)) removeEnemy(id);
+  enemyByCell.clear();
   knockedBackThisTick.clear();
 }
 
@@ -241,7 +248,10 @@ function marchOneStep(
   const nx = e.gx + sx, ny = e.gy + sy;
   const nk = gk(nx, ny);
   if (moveSet.has(nk)) return false;
+  const oldK = gk(e.gx, e.gy);
+  if (enemyByCell.get(oldK) === e) enemyByCell.delete(oldK);
   e.gx = nx; e.gy = ny;
+  enemyByCell.set(nk, e);
   moveSet.add(nk);
   e.el.style.left = worldX(nx, px) + 'px';
   e.el.style.top  = worldY(ny, py) + 'px';
@@ -326,7 +336,10 @@ export function marchAll(
         const e    = stack[i];
         const prev = prevPositions.get(e.id);
         if (prev && !occupiedAt(prev.gx, prev.gy, e.id)) {
+          const curK = gk(e.gx, e.gy);
+          if (enemyByCell.get(curK) === e) enemyByCell.delete(curK);
           e.gx = prev.gx; e.gy = prev.gy;
+          enemyByCell.set(gk(prev.gx, prev.gy), e);
           e.el.style.left = worldX(prev.gx, px) + 'px';
           e.el.style.top  = worldY(prev.gy, py) + 'px';
         } else {

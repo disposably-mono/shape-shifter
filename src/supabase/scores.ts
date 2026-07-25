@@ -2,9 +2,13 @@
 import { supabase } from './client';
 import type { ScoreSubmission, ScoreRow, LeaderboardFilters } from '../types/index';
 
-export async function submitScore(submission: ScoreSubmission): Promise<void> {
+export async function submitScore(submission: ScoreSubmission): Promise<boolean> {
   const { error } = await supabase.from('scores').insert(submission);
-  if (error) console.warn('[scores] submit failed:', error.message);
+  if (error) {
+    console.warn('[scores] submit failed:', error.message);
+    return false;
+  }
+  return true;
 }
 
 export async function fetchLeaderboard(

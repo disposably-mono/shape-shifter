@@ -1,6 +1,6 @@
 // src/ui/hud.ts
 import type { GameState } from '../types/index';
-import { MAX_SHIFT_CHARGES } from '../engine/constants';
+import { MAX_SHIFT_CHARGES, PERFECT_KILLS_PER_CHARGE } from '../engine/constants';
 
 let scEl:           HTMLElement;
 let comboEl:        HTMLElement;
@@ -11,6 +11,7 @@ let waveBadgeEl:    HTMLElement;
 let wpLabelEl:      HTMLElement;
 let wpValueEl:      HTMLElement;
 let shiftChargeEl:  HTMLElement;
+let ariaLiveEl:     HTMLElement | null = null;
 
 export function initHUD(): void {
   scEl           = document.getElementById('sc')!;
@@ -22,6 +23,24 @@ export function initHUD(): void {
   wpLabelEl      = document.getElementById('wp-label')!;
   wpValueEl      = document.getElementById('wp-value')!;
   shiftChargeEl  = document.getElementById('shift-charge')!;
+
+  if (!document.getElementById('aria-live-game')) {
+    ariaLiveEl = document.createElement('div');
+    ariaLiveEl.id = 'aria-live-game';
+    ariaLiveEl.setAttribute('role', 'status');
+    ariaLiveEl.setAttribute('aria-live', 'polite');
+    ariaLiveEl.setAttribute('aria-atomic', 'true');
+    ariaLiveEl.className = 'sr-only';
+    document.body.appendChild(ariaLiveEl);
+  } else {
+    ariaLiveEl = document.getElementById('aria-live-game');
+  }
+}
+
+export function announceToScreenReader(msg: string): void {
+  if (!ariaLiveEl) return;
+  ariaLiveEl.textContent = '';
+  requestAnimationFrame(() => { if (ariaLiveEl) ariaLiveEl.textContent = msg; });
 }
 
 export function updateHUD(
@@ -36,24 +55,21 @@ export function updateHUD(
   waveBadgeEl.textContent = 'WAVE ' + state.wave;
   ruleEl.innerHTML        = state.activeRule.label;
 
-  // Combo bar — tracks progress when trigger is combo-based
   cbarEl.style.width = state.waveTrigger.type === 'combo'
-    ? Math.min(100, (state.combo / state.waveTrigger.threshold) * 100) + '%'
+    ? Math.min(100, (state.maxCombo / state.waveTrigger.threshold) * 100) + '%'
     : '0%';
 
-  // Wave progress overlay — top-left of viewport
   const t = state.waveTrigger;
   if (t.type === 'score') {
     wpLabelEl.textContent = 'SCORE';
     wpValueEl.textContent = `${state.score.toLocaleString()} / ${t.threshold.toLocaleString()}`;
   } else {
     wpLabelEl.textContent = 'COMBO';
-    wpValueEl.textContent = `×${state.combo} / ×${t.threshold}`;
+    wpValueEl.textContent = `×${state.maxCombo} / ×${t.threshold}`;
   }
 
-  // Shift charge badge
   if (shiftChargeEl && shiftCharges !== undefined && shiftProgress !== undefined) {
-    const progressStr = shiftCharges < MAX_SHIFT_CHARGES ? ` (${shiftProgress}/5)` : '';
+    const progressStr = shiftCharges < MAX_SHIFT_CHARGES ? ` (${shiftProgress}/${PERFECT_KILLS_PER_CHARGE})` : '';
     shiftChargeEl.textContent = `[Q] SHIFT ×${shiftCharges}${progressStr}`;
     shiftChargeEl.classList.toggle('ready', shiftCharges > 0 && !shiftCooldown);
     shiftChargeEl.classList.toggle('cooldown', !!shiftCooldown);
@@ -75,6 +91,10 @@ export function showComboReset(): void {
 }
 
 // ── Auth chip ─────────────────────────────────────────────────────────────────
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export function updateAuthChip(username: string | null): void {
   let chip = document.getElementById('auth-chip');
   if (!chip) {
@@ -87,7 +107,7 @@ export function updateAuthChip(username: string | null): void {
   if (username) {
     chip.innerHTML = `
       <span class="hl">Player</span>
-      <span class="hv auth-username">${username}</span>
+      <span class="hv auth-username">${escapeHtml(username)}</span>
     `;
     chip.style.cursor = 'default';
     chip.onclick = null;

@@ -17,10 +17,10 @@ const BPM_MARCH_TICK: Record<DifficultyTier, number> = {
 };
 
 export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyConfig> = {
-  easy:   { tier: 'easy',   marchSpeedMultiplier: 1.0, spawnRateMultiplier: 0.75, scoreMultiplier: 0.5  },
-  normal: { tier: 'normal', marchSpeedMultiplier: 1.0, spawnRateMultiplier: 1.0,  scoreMultiplier: 1.0  },
-  hard:   { tier: 'hard',   marchSpeedMultiplier: 1.0, spawnRateMultiplier: 1.3,  scoreMultiplier: 1.5  },
-  brutal: { tier: 'brutal', marchSpeedMultiplier: 1.0, spawnRateMultiplier: 1.6,  scoreMultiplier: 2.5  },
+  easy:   { tier: 'easy',   spawnRateMultiplier: 0.75, scoreMultiplier: 0.5  },
+  normal: { tier: 'normal', spawnRateMultiplier: 1.0,  scoreMultiplier: 1.0  },
+  hard:   { tier: 'hard',   spawnRateMultiplier: 1.3,  scoreMultiplier: 1.5  },
+  brutal: { tier: 'brutal', spawnRateMultiplier: 1.6,  scoreMultiplier: 2.5  },
 };
 
 // Wave trigger threshold multiplier per tier.

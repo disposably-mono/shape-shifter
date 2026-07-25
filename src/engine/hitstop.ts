@@ -48,8 +48,9 @@ export function cancelHitstop(): void {
   if (activeTimer !== null) {
     clearTimeout(activeTimer);
     activeTimer = null;
+    applyFreezeVisual(false);
+    resumeFn?.();
   }
-  applyFreezeVisual(false);
 }
 
 function applyFreezeVisual(active: boolean): void {

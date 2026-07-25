@@ -65,20 +65,6 @@ async function handleConfirm(): Promise<void> {
 
   setLoading(true);
 
-  // Check uniqueness
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', raw)
-    .maybeSingle();
-
-  if (existing) {
-    setLoading(false);
-    showError('That username is already taken.');
-    return;
-  }
-
-  // Upsert profile
   const { error } = await supabase
     .from('profiles')
     .upsert({ id: currentUserId, username: raw }, { onConflict: 'id' });
@@ -86,7 +72,11 @@ async function handleConfirm(): Promise<void> {
   setLoading(false);
 
   if (error) {
-    showError('Something went wrong. Please try again.');
+    if (error.code === '23505' || error.message?.toLowerCase().includes('unique')) {
+      showError('That username is already taken.');
+    } else {
+      showError('Something went wrong. Please try again.');
+    }
     return;
   }
 
