@@ -25,9 +25,9 @@ import { showOverlay, hideAllOverlays } from './ui/overlays';
 import { initMetronome, tickMetronome, showMetronome, hideMetronome } from './ui/metronome';
 import { initDpad } from './ui/dpad';
 import { initLobby, openLobby, closeLobby } from './ui/lobby';
-import { initAuthModal, openAuthModal, handleUserResolved } from './ui/auth-modal';
-import { initUsernameModal } from './ui/username-modal';
-import { getCurrentUser, onAuthStateChange, signOut } from './supabase/auth';
+import { initAuthModal, openAuthModal, handleUserResolved, closeAuthModal } from './ui/auth-modal';
+import { initUsernameModal, closeUsernameModal } from './ui/username-modal';
+import { onAuthStateChange, signOut } from './supabase/auth';
 import { getCachedProfile, clearProfileCache } from './supabase/profiles';
 import { submitScore } from './supabase/scores';
 import { initLeaderboard, openLeaderboard, closeLeaderboard } from './ui/leaderboard';
@@ -82,6 +82,7 @@ let metroBeat = 0;
 let perfectShiftCharges = 1;
 let perfectKillCounter  = 0;
 let shiftOnCooldown     = false;
+let shiftCooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
 function onPerfectKill(): void {
   perfectKillCounter++;
@@ -104,7 +105,7 @@ let marchTimer: ReturnType<typeof setInterval> | null = null;
 
 function stopMarchTimer(): void {
   if (marchTimer !== null) { clearInterval(marchTimer); marchTimer = null; }
-  cancelHitstop();                              // ← cancel any pending freeze
+  cancelHitstop(true);                          // ← cancel any pending freeze, skip auto-resume
   document.getElementById('vp')?.classList.remove('time-freeze');
 }
 
@@ -163,12 +164,6 @@ initInput({
     let dx = 0, dy = 0;
     for (const d of seq) { dx += d.dx; dy += d.dy; }
 
-    if (Math.abs(dx) > MAX_INPUT || Math.abs(dy) > MAX_INPUT) {
-      doComboReset();
-      clearQueuedInput();
-      return;
-    }
-
     const tx     = s.px + dx, ty = s.py + dy;
     const target = enemyAt(tx, ty);
 
@@ -185,7 +180,7 @@ initInput({
 
       const chainKills = displaceNearby(tx, ty, tx, ty, s.activeRule, s.player, worldEl, elimShape);
       removeEnemy(target.id);
-      store.update(() => ({ px: tx, py: ty }));
+      store.update(st => ({ px: tx, py: ty }));
       const ns = store.get();
 
       drawTrail(fromGX, fromGY, tx, ty, ns.px, ns.py);
@@ -380,7 +375,7 @@ function doShift(): void {
   stopMarchTimer();
 
   const newPlayer = executeShift(s.px, s.py);
-  store.update(() => ({ lives: s.lives - 1, combo: 0, player: newPlayer }));
+  store.update(st => ({ lives: st.lives - 1, combo: 0, player: newPlayer }));
 
   sfxShift();
   vpEl.classList.add('shake');
@@ -428,8 +423,9 @@ function doPerfectShift(): void {
   shiftOnCooldown = true;
   hudUpdate();
 
-  setTimeout(() => {
-    shiftOnCooldown = false;
+  shiftCooldownTimer = setTimeout(() => {
+    shiftOnCooldown    = false;
+    shiftCooldownTimer = null;
     hudUpdate();
   }, SHIFT_COOLDOWN_MS);
 
@@ -465,7 +461,7 @@ function doPerfectShift(): void {
 function checkWaveTrigger(): void {
   const s = store.get();
   if (!isWaveTriggerMet(s.waveTrigger, s.score, s.maxCombo)) return;
-  if (s.wave === 5 && !s.config.rulePool.includes('__endless__')) {
+  if (s.wave >= 5 && !s.config.rulePool.includes('__endless__')) {
     doWin();
   } else {
     advanceWave();
@@ -489,10 +485,13 @@ function doWin(): void {
 
 function advanceWave(): void {
   stopMarchTimer();
+  setInputActive(false);                        // ← block input during the wave banner
   const s = store.get();
   const nextWaveNum   = s.wave + 1;
   const waveBaseScore = s.score;
   const waveBaseCombo = s.maxCombo;
+
+  setActiveWave(nextWaveNum);                   // ← keep enemy pool in sync with the new wave
 
   const newRule    = pickWaveRule(nextWaveNum, s.config);
   const newTrigger = generateWaveTrigger(
@@ -518,6 +517,7 @@ function advanceWave(): void {
   setTimeout(() => {
     spawnInitialEnemies();
     startMarchTimer();
+    setInputActive(true);                       // ← re-enable input now that the new wave has spawned
     hudUpdate();
     sfxWaveUp();
   }, WAVE_BANNER_DELAY_MS);
@@ -562,7 +562,14 @@ function startGame(config?: LobbyConfig): void {
   clearCellPool();
   trailSvg.textContent = '';
 
-  const activeConfig: LobbyConfig = config ?? store.get().config;
+  const rawConfig = config ?? store.get().config;
+  // Strip the internal '__endless__' sentinel (appended by continueEndless())
+  // so a fresh RETRY doesn't inherit it from the stored config and skip the
+  // win screen on the new run.
+  const activeConfig: LobbyConfig = {
+    ...rawConfig,
+    rulePool: rawConfig.rulePool.filter(r => r !== '__endless__'),
+  };
   const rule    = pickWaveRule(activeConfig.startingWave, activeConfig);
   const trigger = generateWaveTrigger(
     activeConfig.startingWave,
@@ -577,6 +584,7 @@ function startGame(config?: LobbyConfig): void {
   perfectShiftCharges = 1;
   perfectKillCounter  = 0;
   shiftOnCooldown     = false;
+  if (shiftCooldownTimer !== null) { clearTimeout(shiftCooldownTimer); shiftCooldownTimer = null; }
 
   // Clear any leftover input from previous run
   resetSeq();
@@ -665,6 +673,11 @@ async function bootstrapAuth(): Promise<void> {
     updateStartScreenForAuth(null);
   });
 
+  // onAuthStateChange fires immediately with the current session (INITIAL_SESSION)
+  // as well as on every subsequent change, so this alone covers both the
+  // "already signed in on load" and "signs in later" cases — no need for a
+  // separate getCurrentUser() + handleUserResolved() call, which would
+  // otherwise run fetchProfile() twice for an already-authenticated user.
   onAuthStateChange(async (user) => {
     if (user) {
       await handleUserResolved(user);
@@ -674,9 +687,6 @@ async function bootstrapAuth(): Promise<void> {
       updateStartScreenForAuth(null);
     }
   });
-
-  const user = await getCurrentUser();
-  if (user) await handleUserResolved(user);
 }
 
 bootstrapAuth();
@@ -694,6 +704,8 @@ document.addEventListener('palettechange', () => {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   const modals: Array<[string, () => void]> = [
+    ['username-modal',  closeUsernameModal],
+    ['auth-modal',      closeAuthModal],
     ['options-overlay', closeOptions],
     ['lb-overlay',      closeLeaderboard],
     ['lobby-overlay',   closeLobby],

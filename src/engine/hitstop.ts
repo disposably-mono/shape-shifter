@@ -26,7 +26,9 @@ export function triggerHitstop(tier: DifficultyTier, bonus = false): void {
   const duration = bonus ? Math.round(base * BONUS_MULTIPLIER) : base;
 
   if (activeTimer !== null) {
-    // Extend existing freeze (combo chain) — cap at 1.5× base
+    // Extend existing freeze (combo chain) — resets the timer to full
+    // duration on every kill. There is no cap/accumulation: back-to-back
+    // kills just keep pushing the freeze's end further out.
     clearTimeout(activeTimer);
   } else {
     pauseFn?.();
@@ -44,11 +46,23 @@ export function isHitstopActive(): boolean {
   return activeTimer !== null;
 }
 
-export function cancelHitstop(): void {
+/**
+ * Cancels any pending hitstop freeze.
+ *
+ * @param skipResume When true (used by external callers like the march
+ *   timer's stopMarchTimer(), which is already tearing things down for a
+ *   wave transition or win/lose), the freeze is cleared WITHOUT invoking
+ *   resumeFn — otherwise resuming here would immediately recreate the march
+ *   interval that the caller just stopped.
+ */
+export function cancelHitstop(skipResume = false): void {
+  const wasActive = activeTimer !== null;
   if (activeTimer !== null) {
     clearTimeout(activeTimer);
     activeTimer = null;
-    applyFreezeVisual(false);
+  }
+  applyFreezeVisual(false);
+  if (wasActive && !skipResume) {
     resumeFn?.();
   }
 }
