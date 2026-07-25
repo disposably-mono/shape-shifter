@@ -256,6 +256,10 @@ function marchOneStep(
   const nx = e.gx + sx, ny = e.gy + sy;
   const nk = gk(nx, ny);
   if (moveSet.has(nk)) return false;
+  // Guard against live occupancy too: a lower-distance enemy that didn't move
+  // this tick never registers in moveSet, but its cell is still occupied.
+  const liveOccupant = enemyByCell.get(nk);
+  if (liveOccupant && liveOccupant !== e) return false;
   const oldK = gk(e.gx, e.gy);
   if (enemyByCell.get(oldK) === e) enemyByCell.delete(oldK);
   e.gx = nx; e.gy = ny;

@@ -44,18 +44,21 @@ export function displaceNearby(
     moves.push({ enemy: e, nx, ny, dist });
   }
 
+  const distByEnemy = new Map<import('../types/index').Enemy, number>();
+  for (const m of moves) distByEnemy.set(m.enemy, m.dist);
+
   const claimed = new Map<string, import('../types/index').Enemy>();
   for (const m of moves) {
     const key = `${m.nx},${m.ny}`;
     const existing = claimed.get(key);
-    if (!existing || m.dist < moves.find(x => x.enemy === existing)!.dist) {
+    if (!existing || m.dist < distByEnemy.get(existing)!) {
       claimed.set(key, m.enemy);
     }
   }
 
   const sortedMoves = [...claimed.entries()].sort(([, ea], [, eb]) => {
-    const da = moves.find(m => m.enemy === ea)!.dist;
-    const db = moves.find(m => m.enemy === eb)!.dist;
+    const da = distByEnemy.get(ea)!;
+    const db = distByEnemy.get(eb)!;
     return db - da;
   });
 
@@ -94,11 +97,15 @@ export function displaceNearby(
     }
 
     if (blocker) {
-      chainKills.push(blocker.def);
-      removeEnemy(blocker.id);
-      taken.add(key);
-      updateEnemyCell(e, nx, ny);
-      applyKnockbackTransition(e, nx, ny, playerGX, playerGY);
+      if (activeRule.check(blocker.def, player)) {
+        chainKills.push(blocker.def);
+        removeEnemy(blocker.id);
+        taken.add(key);
+        updateEnemyCell(e, nx, ny);
+        applyKnockbackTransition(e, nx, ny, playerGX, playerGY);
+      }
+      // else: blocker doesn't match the active rule — hard block, the
+      // moving enemy stays put rather than chain-killing an invalid target.
       continue;
     }
 
