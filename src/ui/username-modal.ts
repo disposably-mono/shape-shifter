@@ -11,7 +11,8 @@ export function initUsernameModal(): void {
   modalEl.id = 'username-modal';
   modalEl.style.display = 'none';
   modalEl.innerHTML = `
-    <div id="username-modal-inner">
+    <div id="username-modal-inner" style="position:relative">
+      <button id="username-close" aria-label="Close" style="position:absolute;top:14px;right:16px;background:none;border:none;color:var(--off);font-size:16px;cursor:pointer;opacity:.45;transition:opacity .15s">✕</button>
       <h2>CHOOSE YOUR NAME</h2>
       <p class="username-modal-sub">This is how you'll appear on the leaderboard.</p>
       <input
@@ -24,6 +25,7 @@ export function initUsernameModal(): void {
       />
       <p id="username-error" style="display:none"></p>
       <button id="username-confirm" class="auth-btn-primary">CONFIRM</button>
+      <p class="auth-note"><a href="#" id="username-skip">Skip for now</a></p>
     </div>
   `;
   document.body.appendChild(modalEl);
@@ -54,6 +56,15 @@ function bindEvents(): void {
     .addEventListener('keydown', (e) => {
       if ((e as KeyboardEvent).key === 'Enter') handleConfirm();
     });
+  modalEl!.querySelector('#username-close')!.addEventListener('click', closeUsernameModal);
+  modalEl!.querySelector('#username-skip')!.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeUsernameModal();
+  });
+  modalEl!.addEventListener('click', (e) => { if (e.target === modalEl) closeUsernameModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalEl && modalEl.style.display !== 'none') closeUsernameModal();
+  });
 }
 
 async function handleConfirm(): Promise<void> {

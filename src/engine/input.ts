@@ -3,13 +3,13 @@ import type { Direction } from '../types/index';
 import { MAX_INPUT } from './constants';
 
 export const DIRS: Record<string, Direction> = {
-  ArrowUp:    { dx:  0, dy: -1, sym: '↑' },
+  arrowup:    { dx:  0, dy: -1, sym: '↑' },
   w:          { dx:  0, dy: -1, sym: '↑' },
-  ArrowDown:  { dx:  0, dy:  1, sym: '↓' },
+  arrowdown:  { dx:  0, dy:  1, sym: '↓' },
   s:          { dx:  0, dy:  1, sym: '↓' },
-  ArrowLeft:  { dx: -1, dy:  0, sym: '←' },
+  arrowleft:  { dx: -1, dy:  0, sym: '←' },
   a:          { dx: -1, dy:  0, sym: '←' },
-  ArrowRight: { dx:  1, dy:  0, sym: '→' },
+  arrowright: { dx:  1, dy:  0, sym: '→' },
   d:          { dx:  1, dy:  0, sym: '→' },
 };
 
@@ -44,18 +44,24 @@ export function setInputActive(isActive: boolean): void {
 }
 
 function handleKey(e: KeyboardEvent): void {
+  // Don't hijack keystrokes typed into text fields (e.g. auth/username modals)
+  const tag = (e.target as HTMLElement)?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  const key = e.key.toLowerCase();
+
   // Overlay shortcuts — fire when game is not active and lose screen is visible
   if (!active) {
     const loseOv = document.getElementById('lose-ov');
     const isLoseVisible = loseOv && loseOv.style.display !== 'none';
 
     if (isLoseVisible) {
-      if (e.key === 'Enter') {
+      if (key === 'enter') {
         e.preventDefault();
         overlayCallbacks?.onRetry();
         return;
       }
-      if (e.key === 'Backspace') {
+      if (key === 'backspace') {
         e.preventDefault();
         overlayCallbacks?.onConfigure();
         return;
@@ -65,17 +71,17 @@ function handleKey(e: KeyboardEvent): void {
   }
 
   // Active game input
-  if (e.key === 'Enter' || e.key === ' ') {
+  if (key === 'enter' || key === ' ') {
     e.preventDefault();
     confirm();
     return;
   }
-  if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'r' || e.key === 'R') {
+  if (key === 'escape' || key === 'backspace' || key === 'r') {
     e.preventDefault();
     clear();
     return;
   }
-  const dir = DIRS[e.key];
+  const dir = DIRS[key];
   if (dir) { e.preventDefault(); push(dir); }
 }
 
@@ -96,10 +102,6 @@ export function confirm(): void {
 export function clear(): void {
   seq = [];
   callbacks?.onClear();
-}
-
-export function getSeq(): Direction[] {
-  return [...seq];
 }
 
 export function resetSeq(): void {
