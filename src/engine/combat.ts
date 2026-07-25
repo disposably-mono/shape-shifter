@@ -7,15 +7,33 @@ import {
   KNOCKBACK_DURATION_MS,
   KNOCKBACK_TRANSITION,
   KNOCKBACK_RESET_TRANSITION,
+  MAX_INPUT,
+  MIN_VALID_TARGETS,
 } from './constants';
 import { worldX, worldY, gk } from './grid';
 
-/**
- * Knockback: push all enemies within Euclidean distance ~2.5 of the kill cell.
- * Collects all desired moves first, then resolves conflicts by distance.
- * Diagonal moves get a cardinal fallback if the diagonal target is blocked.
- * The ripple shape matches the eliminated enemy.
- */
+function wouldBreakTargetInvariant(
+  blocker: import('../types/index').Enemy,
+  activeRule: Rule,
+  player: PlayerState,
+  playerGX: number,
+  playerGY: number,
+): boolean {
+  if (!activeRule.check(blocker.def, player)) return false;
+  const bmd = Math.abs(blocker.gx - playerGX) + Math.abs(blocker.gy - playerGY);
+  if (bmd > MAX_INPUT || bmd === 0) return false;
+  let validCount = 0;
+  for (const e of Object.values(enemies)) {
+    if (e.id === blocker.id) continue;
+    const md = Math.abs(e.gx - playerGX) + Math.abs(e.gy - playerGY);
+    if (md <= MAX_INPUT && md > 0 && activeRule.check(e.def, player)) {
+      validCount++;
+      if (validCount >= MIN_VALID_TARGETS) return false;
+    }
+  }
+  return true;
+}
+
 export function displaceNearby(
   elimGX: number,
   elimGY: number,
@@ -25,93 +43,161 @@ export function displaceNearby(
   player: PlayerState,
   worldEl: HTMLElement,
   shape: string,
+  combo = 0,
+  isExact = false,
+  fromGX?: number,
+  fromGY?: number,
+  depth = 0,
 ): EnemyDef[] {
-  spawnRipple(elimGX, elimGY, playerGX, playerGY, shape, worldEl);
+  if (depth > 3) return [];
+
+  const depthFactor = 1 / (1 + depth);
+  const comboRangeBonus = Math.min(Math.floor(combo / 10) * 0.5, 2.0);
+  const comboDistBonus = Math.min(Math.floor(combo / 15), 2);
+  const exactTop = isExact && depth === 0;
+  const kbRange = Math.min(
+    (KNOCKBACK_RANGE + comboRangeBonus) * (exactTop ? 1.5 : 1),
+    5.0,
+  ) * depthFactor;
+  const kbDist = Math.max(1, Math.min(1 + comboDistBonus + (exactTop ? 1 : 0), 3));
+
+  const jdx = elimGX - (fromGX ?? elimGX);
+  const jdy = elimGY - (fromGY ?? elimGY);
+  const jLen = Math.sqrt(jdx * jdx + jdy * jdy);
+
+  spawnRipple(elimGX, elimGY, playerGX, playerGY, shape, worldEl, kbRange / KNOCKBACK_RANGE);
 
   const chainKills: EnemyDef[] = [];
+  const cascadeSites: Array<{ gx: number; gy: number; shape: string }> = [];
 
-  const moves: Array<{ enemy: import('../types/index').Enemy; nx: number; ny: number; dist: number }> = [];
+  type KBMove = {
+    enemy: import('../types/index').Enemy;
+    targetX: number; targetY: number;
+    clearX: number; clearY: number;
+    dist: number;
+  };
+  const moves: KBMove[] = [];
 
   for (const e of Object.values(enemies)) {
     const dx = e.gx - elimGX, dy = e.gy - elimGY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 0.5 || dist > KNOCKBACK_RANGE) continue;
+    if (dist < 0.5 || dist > kbRange) continue;
 
-    const nx = e.gx + Math.sign(dx);
-    const ny = e.gy + Math.sign(dy);
-    if (nx === playerGX && ny === playerGY) continue;
+    const sx = Math.sign(dx), sy = Math.sign(dy);
 
-    moves.push({ enemy: e, nx, ny, dist });
+    let dirFactor = 1.0;
+    if (jLen > 0 && depth === 0) {
+      const kbLen = Math.sqrt(sx * sx + sy * sy);
+      if (kbLen > 0) {
+        const dot = (sx * jdx + sy * jdy) / (kbLen * jLen);
+        dirFactor = 1 + dot * 0.5;
+      }
+    }
+
+    const pushDist = Math.max(1, Math.round(kbDist * dirFactor * depthFactor));
+
+    let targetX = e.gx, targetY = e.gy;
+    let clearX = e.gx, clearY = e.gy;
+
+    for (let step = 1; step <= pushDist; step++) {
+      const cx = e.gx + sx * step;
+      const cy = e.gy + sy * step;
+      if (cx === playerGX && cy === playerGY) break;
+      const occ = enemyAt(cx, cy);
+      if (occ && occ.id !== e.id) {
+        targetX = cx; targetY = cy;
+        break;
+      }
+      clearX = cx; clearY = cy;
+      targetX = cx; targetY = cy;
+    }
+
+    if (targetX === e.gx && targetY === e.gy) continue;
+    moves.push({ enemy: e, targetX, targetY, clearX, clearY, dist });
   }
 
-  const distByEnemy = new Map<import('../types/index').Enemy, number>();
-  for (const m of moves) distByEnemy.set(m.enemy, m.dist);
-
-  const claimed = new Map<string, import('../types/index').Enemy>();
+  const claimed = new Map<string, KBMove>();
   for (const m of moves) {
-    const key = `${m.nx},${m.ny}`;
+    const key = `${m.targetX},${m.targetY}`;
     const existing = claimed.get(key);
-    if (!existing || m.dist < distByEnemy.get(existing)!) {
-      claimed.set(key, m.enemy);
+    if (!existing || m.dist < existing.dist) {
+      claimed.set(key, m);
     }
   }
 
-  const sortedMoves = [...claimed.entries()].sort(([, ea], [, eb]) => {
-    const da = distByEnemy.get(ea)!;
-    const db = distByEnemy.get(eb)!;
-    return db - da;
-  });
-
+  const sortedMoves = [...claimed.values()].sort((a, b) => b.dist - a.dist);
   const taken = new Set<string>();
 
-  for (const [key, e] of sortedMoves) {
+  for (const m of sortedMoves) {
+    const e = m.enemy;
     if (!enemies[e.id]) continue;
 
-    const [nx, ny] = key.split(',').map(Number);
-
-    const rawBlocker = enemyAt(nx, ny);
+    const rawBlocker = enemyAt(m.targetX, m.targetY);
     const blocker = rawBlocker && rawBlocker.id !== e.id ? rawBlocker : undefined;
 
-    if (blocker && Math.abs(nx - e.gx) === 1 && Math.abs(ny - e.gy) === 1) {
-      const options = [
-        { fx: nx, fy: e.gy },
-        { fx: e.gx, fy: ny },
-      ];
-
-      let applied = false;
-      for (const opt of options) {
-        const fallbackKey = `${opt.fx},${opt.fy}`;
-        const rawFb = enemyAt(opt.fx, opt.fy);
-        const fallbackBlocker = rawFb && rawFb.id !== e.id ? rawFb : undefined;
-
-        if (!taken.has(fallbackKey) && !fallbackBlocker) {
-          taken.add(fallbackKey);
-          updateEnemyCell(e, opt.fx, opt.fy);
-          applyKnockbackTransition(e, opt.fx, opt.fy, playerGX, playerGY);
-          applied = true;
-          break;
-        }
-      }
-
-      if (applied) continue;
-    }
-
-    if (blocker) {
-      if (activeRule.check(blocker.def, player)) {
-        chainKills.push(blocker.def);
-        removeEnemy(blocker.id);
-        taken.add(key);
-        updateEnemyCell(e, nx, ny);
-        applyKnockbackTransition(e, nx, ny, playerGX, playerGY);
-      }
-      // else: blocker doesn't match the active rule — hard block, the
-      // moving enemy stays put rather than chain-killing an invalid target.
+    if (!blocker) {
+      const key = `${m.targetX},${m.targetY}`;
+      taken.add(key);
+      updateEnemyCell(e, m.targetX, m.targetY);
+      applyKnockbackTransition(e, m.targetX, m.targetY, playerGX, playerGY);
       continue;
     }
 
-    taken.add(key);
-    updateEnemyCell(e, nx, ny);
-    applyKnockbackTransition(e, nx, ny, playerGX, playerGY);
+    if (activeRule.check(blocker.def, player) &&
+        !wouldBreakTargetInvariant(blocker, activeRule, player, playerGX, playerGY)) {
+      chainKills.push(blocker.def);
+      cascadeSites.push({ gx: blocker.gx, gy: blocker.gy, shape: blocker.def.shape });
+      removeEnemy(blocker.id);
+      const key = `${m.targetX},${m.targetY}`;
+      taken.add(key);
+      updateEnemyCell(e, m.targetX, m.targetY);
+      applyKnockbackTransition(e, m.targetX, m.targetY, playerGX, playerGY);
+      continue;
+    }
+
+    if (m.clearX !== e.gx || m.clearY !== e.gy) {
+      const fbKey = `${m.clearX},${m.clearY}`;
+      if (!taken.has(fbKey)) {
+        taken.add(fbKey);
+        updateEnemyCell(e, m.clearX, m.clearY);
+        applyKnockbackTransition(e, m.clearX, m.clearY, playerGX, playerGY);
+        continue;
+      }
+    }
+
+    const sx = Math.sign(m.targetX - e.gx);
+    const sy = Math.sign(m.targetY - e.gy);
+    if (sx !== 0 && sy !== 0) {
+      const options = [
+        { fx: e.gx + sx, fy: e.gy },
+        { fx: e.gx, fy: e.gy + sy },
+      ];
+      for (const opt of options) {
+        const optKey = `${opt.fx},${opt.fy}`;
+        const rawFb = enemyAt(opt.fx, opt.fy);
+        const fbBlocker = rawFb && rawFb.id !== e.id ? rawFb : undefined;
+        if (!taken.has(optKey) && !fbBlocker &&
+            !(opt.fx === playerGX && opt.fy === playerGY)) {
+          taken.add(optKey);
+          updateEnemyCell(e, opt.fx, opt.fy);
+          applyKnockbackTransition(e, opt.fx, opt.fy, playerGX, playerGY);
+          break;
+        }
+      }
+    }
+  }
+
+  for (const site of cascadeSites) {
+    const cascaded = displaceNearby(
+      site.gx, site.gy,
+      playerGX, playerGY,
+      activeRule, player, worldEl,
+      site.shape,
+      combo, false,
+      undefined, undefined,
+      depth + 1,
+    );
+    chainKills.push(...cascaded);
   }
 
   return chainKills;
@@ -153,11 +239,13 @@ function spawnRipple(
   pgy: number,
   shape: string,
   worldEl: HTMLElement,
+  scale = 1,
 ): void {
   const ring = document.createElement('div');
   ring.className = `disp-ring ${shape}`;
   ring.style.left = worldX(gx, pgx) + 'px';
   ring.style.top  = worldY(gy, pgy) + 'px';
+  if (scale > 1) ring.style.scale = String(scale);
   worldEl.appendChild(ring);
   setTimeout(() => ring.remove(), 600);
 }

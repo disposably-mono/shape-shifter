@@ -179,7 +179,7 @@ initInput({
       const exact     = isExactMatch(target.def, s.player);
       const elimShape = target.def.shape;
 
-      const chainKills = displaceNearby(tx, ty, tx, ty, s.activeRule, s.player, worldEl, elimShape);
+      const chainKills = displaceNearby(tx, ty, tx, ty, s.activeRule, s.player, worldEl, elimShape, s.combo, exact, fromGX, fromGY);
       removeEnemy(target.id);
       store.update(st => ({ px: tx, py: ty }));
       const ns = store.get();
