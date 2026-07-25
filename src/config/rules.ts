@@ -40,8 +40,6 @@ export const RULES: Record<string, Rule> = {
   // It is only used internally to detect bonus SHIFT kills.
 };
 
-export const RULE_POOL = Object.values(RULES);
-
 /** Weighted rule selection — SHAPE_OR_COLOR is 3× more likely than the others */
 export const RULE_WEIGHTS: Record<string, number> = {
   SHAPE_OR_COLOR: 3,
@@ -69,14 +67,6 @@ export const MUTATION_PATH: string[] = [
   'SHAPE_ONLY',
   'COLOR_ONLY',
 ];
-
-export function getMutatedRule(currentRuleId: string): Rule {
-  const idx = MUTATION_PATH.indexOf(currentRuleId);
-  if (idx === -1 || idx >= MUTATION_PATH.length - 1) {
-    return RULES['COLOR_ONLY'];
-  }
-  return RULES[MUTATION_PATH[idx + 1]];
-}
 
 /** True if the enemy is an exact match (bonus SHIFT condition) */
 export function isExactMatch(

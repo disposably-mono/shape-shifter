@@ -88,68 +88,6 @@ export function stopStartCanvas(): void {
   cancelAnimationFrame(canvasAnimId);
 }
 
-export function restartStartCanvas(): void {
-  if (canvasRunning) return;
-  canvasRunning = true;
-  canvasLastTime = performance.now();
-  const canvas = document.getElementById('start-canvas') as HTMLCanvasElement;
-  if (!canvas) return;
-
-  canvasAnimId = requestAnimationFrame(function draw(now: number) {
-    if (!canvasRunning) return;
-
-    const dt = now - canvasLastTime;
-    canvasLastTime = now;
-    canvasMorphT = (canvasMorphT + dt / MORPH_DURATION) % 1;
-    if (canvasMorphT < dt / MORPH_DURATION) {
-      canvasShape = (canvasShape + 1) % 5;
-      canvasColor = (canvasColor + 1) % startPalette.length;
-    }
-
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const cx  = canvas.width  / 2;
-    const cy  = canvas.height / 2;
-    const minSide = Math.min(canvas.width, canvas.height);
-    const r   = minSide * 0.20;
-    const col = startPalette[canvasColor];
-
-    drawStartGrid(ctx, canvas.width, canvas.height, now);
-    drawOrbitingThreats(ctx, cx, cy, minSide, now);
-
-    const beatScale = canvasBeat ? 1.12 : 1.0;
-    const scale     = beatScale + Math.sin(canvasMorphT * Math.PI * 2) * 0.04;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(scale, scale);
-
-    ctx.shadowBlur  = 58;
-    ctx.shadowColor = col;
-    ctx.fillStyle   = col;
-    ctx.globalAlpha = 0.16;
-    drawShape(ctx, canvasShape, r * 1.65);
-    ctx.fill();
-
-    ctx.globalAlpha = 0.90;
-    ctx.shadowBlur  = 28;
-    drawShape(ctx, canvasShape, r);
-    ctx.fill();
-
-    ctx.globalAlpha = 0.22;
-    ctx.shadowBlur  = 0;
-    ctx.fillStyle   = '#ffffff';
-    drawShape(ctx, canvasShape, r * 0.35);
-    ctx.fill();
-
-    ctx.restore();
-
-    if (canvasBeat) canvasBeat = false;
-    canvasAnimId = requestAnimationFrame(draw);
-  });
-}
-
 export function pulseStartCanvas(): void {
   const startOv = document.getElementById('start-ov');
   if (startOv && startOv.style.display !== 'none') {

@@ -76,8 +76,8 @@ function buildLobbyHTML(): string {
         <div class="lobby-field lobby-field-full">
           <label class="lobby-label">Difficulty</label>
           <div class="lobby-tier-row" id="difficulty-tiers">
-            <button class="tier-btn active" data-tier="easy">EASY<span>×0.5 score</span></button>
-            <button class="tier-btn" data-tier="normal">NORMAL<span>×1.0 score</span></button>
+            <button class="tier-btn" data-tier="easy">EASY<span>×0.5 score</span></button>
+            <button class="tier-btn active" data-tier="normal">NORMAL<span>×1.0 score</span></button>
             <button class="tier-btn" data-tier="hard">HARD<span>×1.5 score</span></button>
             <button class="tier-btn" data-tier="brutal">BRUTAL<span>×2.5 score</span></button>
           </div>

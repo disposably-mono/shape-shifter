@@ -13,8 +13,6 @@ export interface EnemyDef {
   shape: Shape;
   color: Color;
   weight: number;
-  speed?: number;
-  special?: string;
   unlockWave?: number;
 }
 

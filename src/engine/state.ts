@@ -1,10 +1,10 @@
 import type { GameState, LobbyConfig, Rule, PlayerState, Direction, WaveTrigger, Shape, Color } from '../types/index';
 import { RULES } from '../config/rules';
-import { SHAPES, COLORS, MAX_LIVES, MAX_INPUT } from './constants';
+import { SHAPES, COLORS, DEFAULT_LIVES, MAX_INPUT } from './constants';
 
 export const DEFAULT_LOBBY_CONFIG: LobbyConfig = {
   startingWave: 1,
-  startingLives: MAX_LIVES,
+  startingLives: DEFAULT_LIVES,
   difficulty: 'normal',
   rulePool: Object.keys(RULES),
   waveTrigger: 'random',

@@ -13,7 +13,3 @@ export function calcPerfectShiftScore(combo: number, difficulty: DifficultyTier)
   const multiplier = getScoreMultiplier(difficulty);
   return Math.floor(BASE_SCORE * Math.max(1, combo) * multiplier * PERFECT_SHIFT_MULTIPLIER);
 }
-
-export function calcRawScore(combo: number): number {
-  return BASE_SCORE * Math.max(1, combo);
-}
