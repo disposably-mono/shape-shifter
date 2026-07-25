@@ -43,7 +43,7 @@ import {
 } from './engine/constants';
 import { initHitstop, triggerHitstop, cancelHitstop } from './engine/hitstop';
 import {
-  initStartCanvas, stopStartCanvas, restartStartCanvas,
+  initStartCanvas, stopStartCanvas,
   pulseStartCanvas, refreshStartCanvasPalette,
 } from './ui/start-canvas';
 import type { LobbyConfig, GameState, ScoreSubmission } from './types/index';
